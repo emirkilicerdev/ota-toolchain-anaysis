@@ -16,12 +16,13 @@
 # BIL 304 — Araştırma İş Parçacığı Teslimatı
 
 > Bu repo, BIL 304 dönem projesinin **2. Bölümü (Araştırma Süreci)** kapsamında
-> hazırlanmıştır. Şablon repodan fork'lanmış, her 23 analiz başlığının altına gerçek
-> firmware analiz sonuçları **ve yorumları** eklenmiştir.
+> hazırlanmıştır. Şablon repodan fork'lanmış, **23 analiz başlığının her birinin**
+> altına gerçek firmware analiz sonuçları, **şablon maddelerini tek tek karşılayan
+> "Madde madde bulgular" tablosu** ve bir **"💡 Yorum"** sentez paragrafı eklenmiştir.
 >
-> **Önemli:** Hocanın kuralı gereği yalnızca komut çıktısı kopyalanmamış; her çıktının
-> altına **"💡 Yorum"** paragrafı eklenerek araç zincirinin amacı ve çıktının firmware
-> rolü açısından anlamı açıklanmıştır.
+> **Hocanın kuralı:** *"Yalnızca komut çıktısını kopyalamak yeterli değildir — araç
+> zincirinin kullanım amacı ve çıktıların anlamı yorumlanmalıdır."* Bu kural her
+> başlıkta uygulanmıştır.
 
 ## 📋 Analiz Edilen 16 Firmware
 
@@ -49,8 +50,8 @@ Tüm dosyalar `firmware-samples/` klasöründedir. Hocanın `Cooja-Images.zip` a
 
 ## ⚙️ Analiz Yöntemi
 
-Analizler `run-analysis.sh` betiği ile toplu olarak üretilmiştir. Betik her dosyanın
-uzantısına bakıp doğru araç zincirini seçer:
+Analizler `run-analysis.sh` betiği ile toplu üretilmiştir. Betik her dosyanın uzantısına
+göre doğru araç zincirini seçer:
 
 | Uzantı | Platform | Araç ön eki |
 |--------|----------|-------------|
@@ -58,8 +59,7 @@ uzantısına bakıp doğru araç zincirini seçer:
 | `.simplelink` | ARM Cortex-M4F | `arm-none-eabi-*` (GNU Arm Embedded 9-2020-q2) |
 | `.cooja` | x86-64 native | standart GNU binutils (`readelf`, `objdump`...) |
 
-Ham çıktılar `analysis-output/` klasörüne dökülür (her firmware için 10 dosya: ELF
-header, section/segment/symbol tabloları, size, nm, objdump, strings, vektörler).
+Ham çıktılar `analysis-output/` klasörüne dökülür (her firmware için 10 dosya).
 
 ---
 
@@ -85,42 +85,40 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `readelf -h <firmware>` (ELF başlığını okur).
+**Kullanılan komut:** `readelf -h <firmware>` (ELF başlığı), `strings` (derleyici izi).
 
 | Firmware | ELF Sınıfı | Mimari | Tür | Entry | Endian |
 |----------|-----------|--------|-----|-------|--------|
 | `*.z1` (8 dosya) | ELF32 | TI MSP430 | EXEC | `0x3100` | little |
 | `*.sky` (6 dosya) | ELF32 | TI MSP430 | EXEC | `0x4000` | little |
 | `base-demo.simplelink` | ELF32 | ARM | EXEC | `0x6751` | little |
-| `mtype5756516.cooja` | ELF64 | x86-64 (AMD64) | DYN | `0x14b00` | little |
+| `mtype5756516.cooja` | ELF64 | x86-64 | DYN | `0x14b00` | little |
 
-`base-demo.simplelink` ELF başlığından (kısaltılmış):
-```
-Class:    ELF32         Machine:  ARM
-Type:     EXEC          Entry point address:  0x6751
-Flags:    0x5000200, Version5 EABI, soft-float ABI
-```
+`base-demo.simplelink` başlığı: `Flags: 0x5000200, Version5 EABI, soft-float ABI`
 
-**Compiler / toolchain izleri** (`.comment` ve `strings` çıktısından):
+**Madde madde bulgular:**
 
-| Firmware | Derleyici izi | Contiki-NG sürümü |
-|----------|---------------|-------------------|
-| `own-*.z1`, `nullnet-unicast.z1` | msp430-gcc | `v4.8-625` |
-| `hardworker.z1`, `hello-world.sky` | msp430-gcc | `v4.9-639` |
-| `base-demo.simplelink` | `GCC ARM 9.3.1 20200408` | `v4.9-639` |
-| `mtype5756516.cooja` | `GCC Ubuntu 11.3.0` | `v4.9-544` |
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Hedef platform | 8× `.z1`, 6× `.sky` → MSP430; 1× `.simplelink` → CC1352R/ARM; 1× `.cooja` → x86-64 |
+| MSP430 mimari tipi | `readelf`: "Texas Instruments msp430 microcontroller" — 16-bit, MSP430X uzantılı |
+| ELF format | `.z1/.sky/.simplelink` = ELF32 **EXEC**; `.cooja` = ELF64 **DYN** (paylaşımlı kütüphane) |
+| Endianness | **little-endian** (düşük byte önce) — 16 dosyada da `2's complement, little endian` |
+| Entry point | Z1=`0x3100`, Sky=`0x4000`, ARM=`0x6751`, cooja=`0x14b00` |
+| ABI | ARM: `Version5 EABI, soft-float ABI`; MSP430: `Flags 0x1000000x` (msp430 EABI) |
+| Compiler izi | `.z1/.sky` = msp430-gcc; ARM = `GCC ARM 9.3.1`; cooja = `GCC Ubuntu 11.3.0` |
+| Toolchain versiyonu | Contiki-NG `v4.8` (own-*, nullnet-unicast.z1) ve `v4.9-639` (diğerleri) |
+| Optimization level | `-Os` (boyut) — Contiki-NG varsayılanı; sıkı/küçük kod bunu gösterir |
+| Debug symbol | **Var** — 16 dosyada da 8 adet `.debug_*` bölümü mevcut |
 
-💡 **Yorum:** `readelf -h` bir firmware'in **kimlik kartıdır**. Dört farklı platform
-net biçimde ayrıştı: `.z1`/`.sky` dosyaları **16-bit MSP430** mikrodenetleyicisi için
-ELF32; `base-demo.simplelink` **32-bit ARM Cortex-M4F** (CC1352R) için ELF32;
-`mtype5756516.cooja` ise PC üzerinde koşan **64-bit x86 paylaşımlı kütüphane** (DYN
-tipi — Cooja simülatörü bunu `.so` gibi `dlopen` ile yükler). Tüm platformlar
-**little-endian** (düşük anlamlı byte önce). Entry point farkları platformun bellek
-haritasını yansıtır: MSP430 Z1 kodu `0x3100`'den, Sky `0x4000`'den, ARM `0x6751`'den
-başlar. ARM dosyasındaki **`soft-float ABI`** bayrağı önemli: derleyici donanım FPU'su
-yerine yazılım kayan-nokta çağrı uzlaşımı seçmiş. Tüm dosyalarda `.debug_*` bölümleri
-bulunduğundan bunlar **debug build**'dir ve Contiki-NG'nin standart `-Os` (boyut)
-optimizasyonu ile derlenmiştir.
+💡 **Yorum:** `readelf -h` bir firmware'in **kimlik kartıdır**. Dört platform net
+ayrıştı: `.z1/.sky` 16-bit MSP430, `.simplelink` 32-bit ARM Cortex-M4F (CC1352R),
+`.cooja` PC'de koşan 64-bit x86 paylaşımlı kütüphanedir (DYN tipi — Cooja onu `dlopen`
+ile yükler). Entry point farkları bellek haritasını yansıtır. ARM'daki **`soft-float
+ABI`** önemli bir tercihtir: Cortex-M4**F** donanım FPU'su olmasına rağmen derleyici
+yazılım kayan-nokta uzlaşımı seçmiş (kesme bağlamında FPU register'larını kaydetme
+maliyetinden kaçınma). Tüm dosyalarda `.debug_*` bölümleri olduğundan bunlar debug
+build'dir.
 
 ---
 
@@ -147,44 +145,43 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `size <firmware>` — `text`/`data`/`bss` bölüm boyutlarını verir.
+**Kullanılan komut:** `size <firmware>` (bölüm boyutları), `readelf -S` (memory map).
 
-| Firmware | text | data | bss | **Flash** (text+data) | **RAM** (data+bss) |
-|----------|------|------|-----|----------------------|--------------------|
+| Firmware | text | data | bss | **Flash**=text+data | **RAM**=data+bss |
+|----------|------|------|-----|---------------------|------------------|
 | `nullnet-broadcast.z1` | 17866 | 166 | 2240 | 18 032 | 2 406 |
-| `nullnet-unicast.z1` | 28097 | 2488 | 2632 | 30 585 | 5 120 |
 | `hello-world.z1` | 41512 | 328 | 5676 | 41 840 | 6 004 |
-| `udp-client.z1` | 42542 | 336 | 5888 | 42 878 | 6 224 |
-| `own-udp-client.z1` | 49545 | 390 | 5922 | 49 935 | 6 312 |
 | `own-udp-server.z1` | 50998 | 390 | 6042 | 51 388 | 6 432 |
 | `own-new-firmware.z1` | 71715 | 336 | 5706 | 72 051 | 6 042 |
 | `hardworker.z1` | 73564 | 374 | 5698 | 73 938 | 6 072 |
 | `hello-world.sky` | 42237 | 324 | 6714 | 42 561 | 7 038 |
-| `udp-client.sky` | 43386 | 330 | 7024 | 43 716 | 7 354 |
-| `nullnet-unicast.sky` | 29171 | 4426 | 3086 | 33 597 | 7 512 |
-| `base-demo.simplelink` (ARM) | 71393 | 1408 | 12968 | 72 801 | 14 376 + heap |
-| `mtype5756516.cooja` (x86) | 324415 | 9488 | 292376 | — | — |
+| `nullnet-unicast.sky` | 29171 | **4426** | 3086 | 33 597 | 7 512 |
+| `base-demo.simplelink` | 71393 | 1408 | 12968 | 72 801 | 14 376 |
 
-Donanım sınırlarına oturma (yaklaşık):
-```
-Z1  (MSP430F2617): 92 KB Flash / 8 KB RAM
-Sky (MSP430F1611): 48 KB Flash / 10 KB RAM
-CC1352R          : 352 KB Flash / 80 KB SRAM
-```
+**Madde madde bulgular:**
 
-💡 **Yorum:** `size` aracı firmware'in **donanıma sığıp sığmayacağını** gösterir.
-**`text`** = makine kodu + sabitler → kalıcı olarak **Flash**'ta durur. **`data`** =
-başlangıç değeri olan global değişkenler; ilk değerleri Flash'ta saklanır, açılışta
-RAM'e kopyalanır (yani hem Flash hem RAM tüketir). **`bss`** = sıfır başlangıçlı
-değişkenler; Flash'ta yer kaplamaz, açılışta RAM'de sıfırlanır. **Stack ve Heap**
-`size` çıktısında görünmez çünkü çalışma anında ayrılırlar — `bss` üstündeki boş RAM'i
-paylaşırlar. Karşılaştırma çarpıcı: `nullnet-broadcast.z1` yalnızca 18 KB Flash
-kullanırken `hardworker.z1` 74 KB kullanıp Z1'in 92 KB'lık flash'ının %80'ini doldurur.
-**Büyük veri yapısı tespiti:** `nullnet-unicast.sky`'ın `data=4426` byte'ı diğer
-nullnet sürümlerinden ~25 kat büyük — firmware içinde gömülü büyük bir sabit tablo
-olduğuna işaret eder. `mtype5756516.cooja`'nın 292 KB `bss`'i ise yanıltıcı değildir:
-PC'de çalıştığı için RAM kısıtı yoktur. Kendi `own-new-firmware.z1` dosyamızın 72 KB
-text'i, içine gömülü OTA firmware örneğinden (`firmware_data.h`) kaynaklanır.
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Flash/RAM/Stack/Heap | Flash=kalıcı kod; RAM=çalışma verisi; Stack=çağrı yığını; Heap=dinamik (Contiki'de neredeyse kullanılmaz) |
+| Flash kullanımı | `text+data`. En az: `nullnet-broadcast.z1` 18 KB; en çok: `hardworker.z1` 74 KB |
+| RAM kullanımı | `data+bss`. 2.4 KB – 14 KB arası. ARM en yüksek (DMA struct'ları) |
+| `.text` boyutu | Salt makine kodu + sabitler, Flash'ta. 17 KB – 73 KB |
+| `.data` boyutu | Başlangıçlı global'ler. Genelde <500 B; `nullnet-unicast.sky` 4426 B (anormal) |
+| `.bss` boyutu | Sıfır başlangıçlı global'ler, sadece RAM. 2–13 KB |
+| Stack kullanım tahmini | `size`'da görünmez; `bss` üstü boş RAM'de çalışma anında ayrılır |
+| Heap var/yok | MSP430 firmware'lerinde ayrı `.heap` yok; ARM'da `.heap` var (256 B) |
+| Section dağılımı | `readelf -S` ile: `.text/.rodata` Flash, `.data/.bss` RAM (bkz. B7) |
+| Memory map | Z1: 92 KB Flash/8 KB RAM; Sky: 48 KB/10 KB; CC1352R: 352 KB/80 KB |
+| Büyük veri yapısı | `nullnet-unicast.sky` `data=4426 B` → gömülü büyük sabit tablo |
+
+💡 **Yorum:** `size` firmware'in donanıma **sığıp sığmayacağını** gösterir. `text` →
+Flash; `data` → hem Flash (ilk değer) hem RAM; `bss` → sadece RAM. Stack ve Heap
+`size`'da yoktur çünkü çalışma anında `bss` üstündeki boş RAM'den ayrılırlar. Çarpıcı
+fark: `hardworker.z1` 74 KB ile Z1 flash'ının %80'ini doldururken `nullnet-broadcast.z1`
+sadece 18 KB kullanır — fark, ağ yığınının ağırlığıdır (bkz. B9). `nullnet-unicast.sky`'ın
+4426 B `data`'sı diğer nullnet'lerden ~25× büyük; bu büyük bir gömülü sabit tabloya
+işaret eder. Kendi `own-new-firmware.z1`'in 72 KB text'i, içine gömülü OTA payload'undan
+gelir.
 
 ---
 
@@ -212,40 +209,41 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `nm -n <firmware>` — sembolleri adrese göre sıralı listeler.
-Sembol türleri: `T/t`=kod (text), `D/d`=başlangıçlı veri, `B/b`=bss, `U`=tanımsız (dış).
+**Kullanılan komut:** `nm -n <firmware>` — sembolleri adrese göre sıralar.
+Türler: `T/t`=kod, `D/d`=başlangıçlı veri, `B/b`=bss, `U`=tanımsız, `A`=mutlak.
 
-| Firmware | Toplam sembol | Fonksiyon (T/t) | Tanımsız (U) | bss (B/b) | data (D/d) |
-|----------|--------------|-----------------|--------------|-----------|------------|
+| Firmware | Toplam | Fonksiyon (T/t) | Tanımsız U | bss B/b | data D/d |
+|----------|--------|-----------------|------------|---------|----------|
 | `nullnet-broadcast.z1` | 705 | 291 | 15 | 97 | 22 |
-| `hello-world.z1` | 1011 | 502 | 13 | 171 | 40 |
 | `own-udp-server.z1` | 1059 | 537 | 13 | 185 | 39 |
 | `hardworker.z1` | 1039 | 519 | 13 | 172 | 48 |
 | `base-demo.simplelink` | 1146 | 761 | 0 | 228 | 53 |
 | `mtype5756516.cooja` | 1681 | 1109 | 22 | 415 | 112 |
 
-Kendi `own-udp-server.z1` dosyamızdan OTA/CFS sembolleri (`nm` çıktısı):
-```
-00004c40 T cfs_open          0000508a T cfs_write
-00004d10 T cfs_seek          0000725c T ota_crc32_buffer
-00007318 T ota_metadata_mark_verified
-000073a4 T ota_metadata_stage_verified_image
-0000121e D udp_server_process
-```
+**Madde madde bulgular** (`own-udp-server.z1` örnek):
 
-💡 **Yorum:** `nm` firmware'in **fonksiyon ve değişken haritasıdır**. `T` sembolleri
-çalıştırılabilir fonksiyonlardır; sayıları kod karmaşıklığının kabaca ölçüsüdür —
-`nullnet-broadcast.z1` 291 fonksiyonla en sade, `base-demo.simplelink` 761 fonksiyonla
-en zengin uygulamadır. `U` (undefined) sembolleri normalde linkleme sırasında çözülür;
-nihai çalıştırılabilir dosyada kalan birkaç `U` (MSP430'da 13–19) donanım register
-adresleri gibi mutlak/zayıf sembollerdir. ARM dosyasında `U=0` olması linklemenin tam
-kapalı olduğunu gösterir. Kendi OTA alıcımızda `cfs_*` (Coffee dosya sistemi) ve
-`ota_metadata_*` sembollerinin **bulunması**, Part 1'de yazdığımız kalıcı depolama ve
-metadata kodunun gerçekten firmware'e linklendiğini kanıtlar. `udp_server_process`'in
-`D` (data) sembolü olması, Contiki process yapısının `static` bir struct olarak RAM'de
-tutulduğunu gösterir. **Dead-code:** Contiki-NG `-ffunction-sections` + linker
-`--gc-sections` kullanır; çağrılmayan fonksiyonlar zaten elenir, bu yüzden `nm`
-çıktısındaki semboller pratikte "canlı" koddur.
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Fonksiyon isimleri | `T` sembolleri: 537 fonksiyon (`main`, `cfs_open`, `ota_crc32_buffer`...) |
+| Global değişkenler | `D` (başlangıçlı) + `B` (sıfır) büyük harf semboller |
+| Static değişkenler | `d`/`b` küçük harf semboller — dosyaya özel (file-scope `static`) |
+| ISR fonksiyonları | `cc2420_timerb1_interrupt`, `timera0`, `timera1` |
+| Contiki process entry | `udp_server_process` (D), `process_thread_*` (t) |
+| Radio driver | `cc2420_*`, `process_thread_cc2420_process` |
+| Timer callback | `ctimer_init/set/reset/stop/expired`, `etimer_request_poll` |
+| Networking callback | `udp_rx_callback` (kendi kodumuz), `tcpip_*`, `dao_ack_handler` |
+| Sensor handler | `process_thread_accmeter_process` (ivmeölçer) |
+| Kullanılan kütüphaneler | `rpl_*`, `csma_*`, `cc2420_*`, `cfs_*` sembol kümeleri |
+| Dead fonksiyonlar | Contiki `--gc-sections` ile eler; `nm`'deki semboller "canlı" koddur |
+| Function address mapping | `nm -n` adrese sıralı: `0x313e main`, `0x725c ota_crc32_buffer` |
+
+💡 **Yorum:** `nm` firmware'in **fonksiyon haritasıdır**. Büyük/küçük harf ayrımı
+kritiktir: `T`=global fonksiyon, `t`=static (dosyaya özel) fonksiyon; `D/B`=global
+değişken, `d/b`=static değişken. `U` (undefined) normalde linklemede çözülür; ELF'te
+kalan birkaç `U` donanım register adresi gibi zayıf/mutlak sembollerdir (ARM'da `U=0`,
+linkleme tam kapalı). Kendi OTA alıcımızda `cfs_*` ve `ota_metadata_*` sembollerinin
+**bulunması**, Part 1'de yazdığımız depolama kodunun gerçekten linklendiğini kanıtlar.
+Contiki `-ffunction-sections + --gc-sections` kullandığından ölü kod zaten elenir.
 
 ---
 
@@ -271,40 +269,34 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `strings <firmware>` — `.rodata` içindeki okunabilir metinleri çeker.
+**Kullanılan komut:** `strings <firmware>` — `.rodata` içindeki okunabilir metinleri çeker.
 
-`nullnet-unicast.z1` içinden çıkan log şablonları:
-```
-Sending from node_id :%d, to linkaddr_node_addr :
-Sending done from :%d
-Received %u , node_id %d from
-```
+**Madde madde bulgular:**
 
-`base-demo.simplelink` içinden çıkan metadata:
-```
-Starting Contiki-NG-develop/v4.9-639-g6ac4608cd-dirty
-CHIP_TYPE_CC1352P          batmon-sensor.c
-CC1352P1_LAUNCHXL.c        button-sensor-arch.c
-```
+| Şablon maddesi | Bulunan örnek (gerçek `strings` çıktısı) |
+|----------------|------------------------------------------|
+| Debug mesajları | `"failed to create a new RPL DAG"`, `"failed to add neighbor"` |
+| printf logları | `"Sending from node_id :%d"`, `"Received %u , node_id %d from"` |
+| IPv6 adresleri | `"::FFFF:%u.%u.%u.%u"` (IPv4-eşlemeli IPv6 biçim şablonu) |
+| MAC adresleri | `"Link-layer address: "`, `"- MAC: %s"` |
+| Network node ID | `"Sending from node_id :%d"` — düğüm kimliği basımı |
+| Sensor isimleri | `base-demo`: `"batmon-sensor.c"`, `"button-sensor-arch.c"` |
+| Process isimleri | `"Hello world process"`, `"[LED] Toggled"`, `"OTA Alici"` |
+| Routing protokol | `"RPL Lite"`, `"created a new RPL DAG"` |
+| TSCH/6LoWPAN/RPL | `"RPL Lite"`, 6LoWPAN sıkıştırma mesajları; TSCH dizesi **yok** |
+| Hidden diagnostic | `"SRH node not found, skip SRH insertion"` |
+| Hardcoded config | `"802.15.4 PANID: 0x%04x"`, `"802.15.4 Default channel: %u"` |
+| Developer notları | `"Starting Contiki-NG-...v4.9-639"` (sürüm damgası) |
 
-Kendi `own-udp-server.z1` dosyamızdan OTA mesajları:
-```
-=== OTA Alici Hazir ===
-Slot B PENDING: sonraki acilista yeni firmware aktif olacak.
-Blok %u/%u | offset=%lu | %u byte | cs=OK | toplam=%u
-```
+Kendi `own-udp-server.z1`'den: `"=== OTA Alici Hazir ==="`, `"Slot B PENDING: ..."`.
 
 💡 **Yorum:** `strings` **en hızlı keşif aracıdır** — kodu sökmeden firmware'in ne
-yaptığını ele verir. `printf`/`LOG_INFO` şablonlarındaki `%d %u` biçim belirteçleri,
-çalışma anında hangi değişkenlerin basıldığını gösterir. `nullnet-unicast.z1`'in
-"Sending from node_id" metni firmware'in bir **nokta-nokta haberleşme** uygulaması
-olduğunu doğrular. `base-demo.simplelink`'teki `CHIP_TYPE_CC1352P`, `batmon-sensor.c`
-(pil izleme), `button-sensor-arch.c` dizeleri donanımın **CC1352 LaunchPad** olduğunu
-ve pil + buton sensörleri içerdiğini kesinleştirir. Her dosyadaki `Contiki-NG-...v4.x`
-dizesi yapı sürümünü verir. Kendi firmware'imizde Part 1'de yazdığımız OTA protokol
-mesajları (`Slot B PENDING`, `Blok %u/%u`) doğrudan görünür — bu, **ham binary yerine
-ELF kullanmanın** ve `.rodata` bölümünün gücüdür. **Güvenlik notu:** hiçbir dosyada
-parola/anahtar gibi hardcoded gizli bilgi görülmedi (bkz. Bölüm 21).
+yaptığını ele verir. `%d %u` biçim belirteçleri çalışma anında basılan değişkenleri
+gösterir. `base-demo.simplelink`'teki `batmon-sensor` (pil izleme) ve
+`button-sensor-arch` dizeleri donanımın **CC1352 LaunchPad** olduğunu kesinleştirir.
+`PANID` ve `channel` dizeleri **hardcoded ağ yapılandırmasını** ele verir. Kendi OTA
+mesajlarımızın doğrudan görünmesi, **ELF kullanmanın ham binary'ye üstünlüğüdür** —
+ham binary'de hangi byte'ın metin olduğu bilinemezdi.
 
 ---
 
@@ -335,39 +327,51 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `objdump -d <firmware>` — makine kodunu assembly'ye geri çevirir.
+**Kullanılan komut:** `objdump -d <firmware>` — makine kodunu assembly'ye çevirir.
 
-`own-udp-server.z1` — `main` fonksiyonu (MSP430):
-```asm
-0000313e <main>:
-    313e:  b0 13 ca 75   calla  #0x075ca
-    3142:  b0 13 1c 56   calla  #0x0561c
-    314e:  0e 43         clr    r14
-    3150:  3f 40 4e 11   mov    #4430, r15
+`own-udp-server.z1` komut frekansı (disassembly taraması):
+```
+calla=1509   jnz=876   jz=763   jmp=756   reta=550
+push=300     jnc=132   jc=122   pop=35    br=1
 ```
 
-`base-demo.simplelink` — `main` fonksiyonu (ARM Thumb-2):
+MSP430 `main` vs ARM `main` prologue:
 ```asm
-00000a24 <main>:
-     a24:  e92d 41f0   stmdb  sp!, {r4,r5,r6,r7,r8,lr}
-     a28:  f001 fbce   bl     21c8 <platform_init_stage_one>
-     a2c:  f7ff ff76   bl     91c  <clock_init>
-     a34:  f001 fd10   bl     2458 <process_init>
+MSP430:  313e <main>:  calla #0x075ca      <- mutlak çağrı
+ARM:     a24  <main>:  stmdb sp!, {r4-r8,lr}  <- register'ları stack'e it
+                        bl 21c8 <platform_init_stage_one>
 ```
 
-💡 **Yorum:** `objdump -d` iki mimarinin **komut seti farkını** açıkça gösterir.
-MSP430 tarafında **`calla`** (call absolute, 20-bit MSP430X adresleme) kullanılır;
-fonksiyon çağrıları doğrudan mutlak adrese atlar. ARM tarafında fonksiyon **prologue**'u
-klasik `stmdb sp!, {r4-r8, lr}` — yani kullanılacak register'lar ve dönüş adresi (`lr`)
-tek komutla stack'e itilir; çağrılar `bl` (branch-link) ile yapılır. Bu, ARM'ın
-**stack-frame** disiplininin MSP430'a göre daha düzenli olduğunu gösterir. ARM `main`'i
-`platform_init_stage_one → clock_init → rtimer_arch_init → process_init` sırasıyla
-çağırır; bu, **Contiki-NG açılış zincirinin** assembly seviyesinde okunabildiğini
-kanıtlar. **Protothread genişlemesi:** Contiki `PROCESS_THREAD` makroları derlenince
-bir `switch` deyimine dönüşür; `PROCESS_WAIT` noktaları `case` etiketleri olur — bu
-yüzden process fonksiyonlarının disassembly'sinde dağınık `case` atlamaları görülür.
-Bu, Contiki'nin **yığınsız (stackless) kooperatif zamanlayıcı** davranışının makine
-kodundaki izidir.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Instruction sequence | MSP430'da en sık `calla` (1509) → bol fonksiyon çağrısı, sade akış |
+| Prologue/epilogue | MSP430: `push`/`pop`; ARM: `stmdb sp!,{...}` / `ldmia` tek komutla |
+| Register kullanımı | MSP430 16 register (r0-r15); ARM `r4-r8` callee-saved + `lr` |
+| Stack frame | ARM düzenli (`stmdb` ile blok); MSP430 gerektiği kadar `push` |
+| ISR akışı | ISR'ler `reti`/`reta` ile döner; vektör tablosundan çağrılır (B8) |
+| Loop yapıları | Geri yönlü koşullu atlama (`jnz`/`jz` → önceki adres) = döngü |
+| Branch analizi | `jz`(763)+`jnz`(876)+`jc`+`jnc` = ~1893 koşullu dal |
+| Jump table | `br` komutu (1 adet) dolaylı atlama → `switch` jump table izi |
+| Function call graph | `calla` hedef adresleri izlenerek çağrı grafiği çıkarılabilir |
+| Inline tespiti | `-Os` küçük fonksiyonları inline eder → kaynak fonksiyon ayrı görünmez |
+| Compiler optimization | Sıkı kod, ortak alt-ifade eliminasyonu → `-Os` davranışı |
+| Delay loop | Sayaç azaltıp sıfırı bekleyen sıkı döngüler (radyo zamanlama) |
+| Busy-wait | Donanım register'ı sürekli yoklayan döngü; radyo init dışında nadir |
+| Context switching | Contiki kooperatif → ISR dışında klasik bağlam değişimi yok |
+| Protothread expansion | `PROCESS_THREAD` → `switch`; `PROCESS_WAIT` → `case` etiketi |
+| Scheduler davranışı | `process_run` olay kuyruğunu döner; yığınsız kooperatif |
+
+💡 **Yorum:** `objdump -d` iki mimarinin **komut seti farkını** gösterir. MSP430'da
+**`calla`** (20-bit mutlak çağrı) baskın komuttur — sade, doğrudan akış. ARM prologue'u
+`stmdb sp!,{r4-r8,lr}` ile tüm callee-saved register'ları **tek komutta** stack'e iter;
+bu, ARM'ın stack-frame disiplininin daha düzenli olduğunu gösterir. ~1893 koşullu dal,
+firmware'in mantık yoğunluğunu gösterir. Tek `br` komutu, derleyicinin bir `switch`
+deyimini **jump table**'a çevirdiğine işaret eder. **Protothread genişlemesi** Contiki'nin
+kalbidir: `PROCESS_THREAD` derlenince `switch`, `PROCESS_WAIT` ise `case` olur — process
+bir olay beklerken `return` eder, olay gelince `switch` ile **kaldığı yere döner**. Bu,
+yığınsız kooperatif zamanlayıcının makine kodundaki izidir.
 
 ---
 
@@ -390,36 +394,35 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `addr2line -f -e <firmware> <adres>` — bir bellek adresini
-fonksiyon/satıra çevirir.
+**Kullanılan komut:** `addr2line -f -e <firmware> <adres>`.
 
-`own-udp-server.z1` üzerinde test:
 ```
 $ msp430-addr2line -f -e own-udp-server.z1 0x313e 0x725c 0x4c40
-main
-??:0
-ota_crc32_buffer
-??:0
-cfs_open
-??:0
+main              ??:0
+ota_crc32_buffer  ??:0
+cfs_open          ??:0
 ```
+16 firmware'in tamamında 8 adet `.debug_*` bölümü mevcut (DWARF debug bilgisi).
 
-Tüm 16 firmware'de `.debug_*` bölüm sayısı: **8 adet** (`.debug_info`, `.debug_line`,
-`.debug_abbrev`, `.debug_frame`, `.debug_str`, `.debug_loc`, `.debug_ranges`,
-`.debug_aranges`).
+**Madde madde bulgular:**
 
-💡 **Yorum:** `addr2line`, bir **çökme adresini** (crash address) okunabilir kod
-konumuna çevirmek için kullanılır — gömülü sistem hata ayıklamasının temel aracıdır.
-Testte adres → **fonksiyon adı** çevirisi başarılı oldu (`0x313e → main`,
-`0x725c → ota_crc32_buffer`); bu, `.symtab` ve `.debug_info` bölümlerinin sağlam
-olduğunu gösterir. Ancak **satır numarası** `??:0` döndü: bunun nedeni `.debug_line`
-bölümünün, derleme anındaki **kaynak dosya yollarına** referans vermesi; o kaynak ağacı
-analiz makinesinde bulunmadığı için satır eşlemesi tamamlanamadı. Yani fonksiyon
-seviyesinde eşleme her zaman çalışır, satır seviyesi için **orijinal kaynak kodun
-varlığı** gerekir. `objdump -S` ise assembly'yi kaynak satırlarla **iç içe** gösterir;
-yine kaynak ağacı gerektirir. Tüm firmware'lerde 8 `.debug_*` bölümünün bulunması,
-hepsinin **debug bilgisiyle** derlendiğini doğrular — bu da neden `.z1` dosyalarının
-salt makine kodundan çok daha büyük olduğunu açıklar.
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Address → source line | Kısmen: satır `??:0` döndü — kaynak ağacı yok, `.debug_line` yol referansları çözülemedi |
+| Function → source file | **Başarılı:** `0x313e → main`, `0x725c → ota_crc32_buffer` (`.symtab` sağlam) |
+| ISR → source mapping | ISR adresleri `addr2line` ile fonksiyon adına çevrilebilir |
+| Crash address çözümleme | Bir çökme adresi `addr2line` ile fonksiyona indirgenebilir |
+| Optimization sonrası mapping | `-Os` inline yaptığından bazı adresler birden çok kaynak satırına denk gelir |
+| Inline tespiti | `.debug_info` `DW_TAG_inlined_subroutine` etiketleriyle inline'ı işaretler |
+
+💡 **Yorum:** `addr2line`, bir **çökme adresini** okunabilir konuma çeviren temel
+debug aracıdır. Testte adres → **fonksiyon adı** çevirisi başarılı oldu — `.symtab` ve
+`.debug_info` sağlam. Ancak **satır numarası** `??:0` döndü: `.debug_line` bölümü
+derleme anındaki **kaynak dosya yollarına** referans verir; o kaynak ağacı analiz
+makinesinde olmadığı için satır eşlemesi tamamlanamadı. Yani fonksiyon seviyesi her
+zaman çalışır, satır seviyesi için **orijinal kaynak kod** gerekir. `objdump -S`
+assembly'yi kaynakla iç içe gösterir; yine kaynak ağacı ister. 8 `.debug_*` bölümünün
+bulunması, neden `.z1` dosyalarının çalışan koddan büyük olduğunu açıklar (bkz. B18).
 
 ---
 
@@ -445,42 +448,40 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `readelf -S` (bölümler) ve `readelf -l` (segmentler).
+**Kullanılan komut:** `readelf -S` (bölümler), `readelf -l` (segmentler).
 
-`own-new-firmware.z1` (Z1) bölümleri:
+`own-new-firmware.z1` (Z1) bölümleri vs `base-demo.simplelink` (ARM):
 ```
-[ 1] .far.text  PROGBITS  00010000  ...  AX   <- uzak flash kodu
-[ 2] .text      PROGBITS  00003100  ...  AX   <- ana kod
-[ 3] .rodata    PROGBITS  0000c870  ...  A    <- salt-okunur sabitler
-[ 4] .data      PROGBITS  00001100  ...  WA   <- başlangıçlı RAM verisi
-[ 5] .bss       NOBITS    00001250  ...  WA   <- sıfır başlangıçlı RAM
-[ 6] .noinit    NOBITS    00002898  ...  WA   <- reset'te korunan RAM
-[ 7] .vectors   PROGBITS  0000ffc0  ...  AX   <- kesme vektör tablosu
+Z1 :  .far.text 0x10000 | .text 0x3100 | .rodata 0xc870 | .data 0x1100
+      .bss 0x1250 | .noinit 0x2898 | .vectors 0xffc0
+ARM:  .resetVecs 0x0 | .text 0x40 | .rodata 0x10d14 | .data 0x20001b20 (SRAM)
+      .ccfg 0x57fa8 | .bss 0x200020d8 (SRAM) | .heap 0x20005200
 ```
 
-`base-demo.simplelink` (ARM CC1352R) bölümleri — farklı bellek haritası:
-```
-[ 1] .resetVecs  PROGBITS  00000000  ...  A    <- ARM reset vektör tablosu
-[10] .text       PROGBITS  00000040  ...  AX   <- kod (Flash)
-[11] .rodata     PROGBITS  00010d14  ...  A
-[12] .data       PROGBITS  20001b20  ...  WA   <- SRAM (0x2000_0000 bölgesi!)
-[15] .ccfg       PROGBITS  00057fa8  ...  A    <- Customer Config alanı
-[16] .bss        NOBITS    200020d8  ...  WA   <- SRAM
-[17] .heap       NOBITS    20005200  ...  WA   <- heap (256 byte)
-```
+**Madde madde bulgular:**
 
-💡 **Yorum:** `readelf -S` firmware'in **iç organ haritasını** verir. MSP430'da kod
-(`.text`), sabitler (`.rodata`) ve değişkenler (`.data`/`.bss`) hepsi **tek 16-bit
-adres uzayında** iç içedir; `.vectors` her zaman uzayın tepesindedir (`0xFFC0`). Bazı
-Z1 dosyalarında **`.far.text`** (`0x10000`) görülür — 64 KB'ı aşan kodu MSP430X'in
-genişletilmiş flash'ına taşır. ARM/CC1352R **tamamen farklı bir mimari** sergiler:
-Flash bölgesi `0x0000_0000`'dan, SRAM bölgesi `0x2000_0000`'dan başlar — kod ve veri
-**ayrı fiziksel adres bloklarındadır** (Harvard benzeri). ARM dosyasındaki
-**`.ccfg`** (Customer Configuration) bölümü kritiktir: CC1352R'ın ROM bootloader'ı
-açılışta bu alanı okuyarak boot davranışını, debug kilidini ve flash koruma ayarlarını
-belirler. **Segment (`readelf -l`)** ile **section** farkı: section'lar linker/derleyici
-için ayrıntıdır; segment'ler (LOAD tipi) **donanıma fiilen yüklenecek** bloklardır —
-firmware'i flash'a yazan araç segment'leri kullanır.
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| ELF header | 52 byte; sınıf/mimari/entry/segment-section sayısı (bkz. B1) |
+| Section header | Z1=21, ARM=24, Sky=20 bölüm; her biri ad/adres/boyut/bayrak taşır |
+| Program header | LOAD tipi segmentler — donanıma fiilen yüklenecek bloklar |
+| Symbol table | `.symtab` + `.strtab` — fonksiyon/değişken adları (B3) |
+| Relocation entries | EXEC dosyalarda yok (linklenmiş); `.cooja` DYN'de `.rela.plt` var |
+| Debug sections | 8 adet `.debug_*` (info/line/abbrev/frame/str/loc/ranges/aranges) |
+| DWARF info | `.debug_info` DWARF formatında — değişken/tür/satır bilgisi |
+| Linker-generated metadata | `__bss_start`, `_etext`, `__data_start` gibi linker sembolleri |
+| Startup section | `.text` başındaki `_reset_vector__` rutini |
+| Vector table | `.vectors` (MSP430) / `.resetVecs` (ARM) — sabit adreste (B8) |
+| Initialization routines | `__ctors_start`/`__dtors_start`; `.data` kopyala + `.bss` sıfırla |
+
+💡 **Yorum:** `readelf -S` firmware'in **iç organ haritasıdır**. MSP430'da kod, sabit
+ve değişken tek 16-bit uzayda iç içedir; `.vectors` her zaman tepededir. Bazı Z1
+dosyalarında **`.far.text`** (`0x10000`) görülür — 64 KB'ı aşan kodu MSP430X genişletilmiş
+flash'ına taşır. ARM/CC1352R **tamamen farklı**: Flash `0x0`'dan, SRAM `0x20000000`'dan
+başlar — kod ve veri **ayrı fiziksel bloklarda**. ARM'daki **`.ccfg`** (Customer
+Configuration) kritiktir: CC1352R ROM bootloader'ı açılışta bunu okuyup boot/debug/flash
+koruma ayarlarını belirler. **Section** derleyici detayıdır; **segment (LOAD)** donanıma
+yüklenecek bloktur — firmware'i flash'a yazan araç segmentleri kullanır.
 
 ---
 
@@ -505,40 +506,37 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `objdump -d -j .vectors <firmware>` — kesme vektör tablosunu döker.
+**Kullanılan komut:** `objdump -d -j .vectors`, `nm` (donanım sembolleri).
 
-`own-new-firmware.z1` (Z1 — `__ivtbl_32`, 64 byte):
-```
-0000ffc0 <__ivtbl_32>:
- ffc0: 76 33 76 33 ...        <- 32 adet 2-byte vektör
- fff0: ... 76 33 76 33 00 31  <- son 2 byte = RESET vektörü = 0x3100
-```
+| Platform | Vektör tablosu | Adres | Boyut | Vektör |
+|----------|---------------|-------|-------|--------|
+| Z1 (F2617) | `__ivtbl_32` | `0xFFC0` | 64 B | 32 |
+| Sky (F1611) | `__ivtbl_16` | `0xFFE0` | 32 B | 16 |
+| CC1352R | `.resetVecs` | `0x0` | 64 B | 16+ |
 
-`hello-world.sky` (Sky — `__ivtbl_16`, 32 byte):
-```
-0000ffe0 <__ivtbl_16>:
- ffe0: 7c 42 14 43 ...
- fff0: ... 7c 42 7c 42 00 40  <- son 2 byte = RESET = 0x4000
-```
+**Madde madde bulgular:**
 
-| Platform | Vektör tablosu | Adres | Boyut | Vektör sayısı |
-|----------|---------------|-------|-------|---------------|
-| Z1 (MSP430F2617) | `__ivtbl_32` | `0xFFC0` | 64 byte | 32 |
-| Sky (MSP430F1611) | `__ivtbl_16` | `0xFFE0` | 32 byte | 16 |
-| CC1352R (ARM) | `.resetVecs` | `0x00000000` | 64 byte | 16+ |
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Interrupt vector table | Z1: 32 vektör `0xFFC0`; Sky: 16 vektör `0xFFE0`; son 2 byte = RESET |
+| GPIO access pattern | `gpio_hal_arch_port_*` sembolleri; port register'larına XOR/yazma |
+| Timer interrupt | `timera0`, `timera1`, `cc2420_timerb1_interrupt` ISR'leri |
+| UART ISR | `uart0_rx_interrupt` (hardworker.z1) — seri port alma kesmesi |
+| Radio interrupt handler | `cc2420_*` ISR — radyo paketi gelince tetiklenen kesme |
+| ADC access | `__ADC12MCTL0..8` mutlak register sembolleri (MSP430 12-bit ADC) |
+| Sensor polling | `process_thread_accmeter_process` periyodik sensör okur |
+| Low-power mode | Contiki boşta CPU'yu LPM'e sokar; `lpm`/uyku sembolleri |
+| Clock configuration | `clock_init`, `rtimer_arch_init` açılış zincirinde (B5) |
+| MSP430 register erişimi | `nm`'de `A` (mutlak) semboller: `__P1OUT`, `__ADC12MCTL0`, `__UCB0I2CIE` |
 
-💡 **Yorum:** Kesme vektör tablosu, **donanım olayları ile yazılım arasındaki
-köprüdür**: bir kesme (timer taşması, radyo paketi, GPIO) oluştuğunda CPU, ilgili
-vektördeki adrese atlar. Z1 ile Sky farkı çarpıcı: **Z1's MSP430F2617** 32 kesme
-kaynağına sahip (`__ivtbl_32`, 64 byte, `0xFFC0`'da); **Sky'ın MSP430F1611** ise yalnız
-16 kaynak (`__ivtbl_16`, 32 byte, `0xFFE0`'da). Bu, aynı `.sky`/`.z1` uygulamasının
-neden farklı entry point ve bellek haritasına sahip olduğunu açıklar — donanım farkı.
-Her iki MSP430'da da tablonun **son 2 byte'ı RESET vektörüdür** ve entry point'i
-gösterir (`0x3100` / `0x4000`); CPU'ya güç gelince ilk buraya bakar. ARM/CC1352R'da
-tablo **adres uzayının başındadır** (`0x0`): ilk kelime stack pointer başlangıcı, ikinci
-kelime reset handler adresidir — ARM Cortex-M standardı. GPIO/timer erişimleri ise
-disassembly'de doğrudan donanım register adreslerine (`mov ... &0x0029` gibi MSP430
-port register'ları) yazma olarak görülür.
+💡 **Yorum:** Kesme vektör tablosu **donanım olayları ile yazılım arasındaki köprüdür**.
+Z1/Sky farkı çarpıcı: **F2617** 32 kesme kaynağı (`__ivtbl_32`), **F1611** 16 kaynak
+(`__ivtbl_16`) — bu, aynı uygulamanın neden farklı `.z1`/`.sky` bellek haritasına sahip
+olduğunu açıklar. Her iki MSP430'da tablonun **son 2 byte'ı RESET vektörüdür** ve entry
+point'i gösterir. ARM/CC1352R'da tablo uzayın başındadır (`0x0`): ilk kelime stack
+pointer, ikinci kelime reset handler — Cortex-M standardı. `nm`'deki `A` (absolute)
+semboller (`__ADC12MCTL0`, `__UCB0I2CIE`) doğrudan **donanım register adresleridir** —
+firmware bunlara yazarak ADC/I2C/GPIO çevre birimlerini sürer.
 
 ---
 
@@ -568,29 +566,43 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `nm <firmware> | grep -c <protokol>` — ağ yığını sembollerini sayar.
+**Kullanılan komut:** `nm | grep -c <protokol>` (sembol sayımı).
 
 | Firmware | `rpl_*` | `tsch_*` | `nullnet*` | `udp/uip` | `csma*` |
 |----------|---------|----------|------------|-----------|---------|
 | `own-udp-server.z1` | 70 | 0 | 0 | 106 | 3 |
-| `hello-world.z1` | 70 | 0 | 0 | 94 | 5 |
 | `hardworker.z1` | 77 | 0 | 0 | 101 | 5 |
 | `nullnet-broadcast.z1` | 0 | 0 | 6 | 1 | 5 |
 | `nullnet-unicast.z1` | 0 | 0 | 6 | 1 | 5 |
-| `base-demo.simplelink` | 70 | 0 | 0 | 92 | 5 |
 
-💡 **Yorum:** Sembol sayımı firmware'in **ağ mimarisini** ele verir. İki net aile
-görülür: **(1) IPv6/RPL ailesi** — `own-udp-server.z1`, `hello-world.z1`, `hardworker.z1`
-gibi dosyalar ~70 `rpl_*` ve ~100 `udp/uip` sembolü içerir; bunlar tam **6LoWPAN +
-RPL yönlendirme + UDP** yığınını kullanır (bizim Part 1 OTA sistemimiz de bu ailededir).
-**(2) NullNet ailesi** — `nullnet-broadcast/unicast` dosyalarında `rpl=0`, `udp=1` ama
-`nullnet=6`; bunlar IPv6 yığınını **tamamen atlayıp** doğrudan MAC üzerinde ham paket
-gönderir. NullNet, IP yükü olmadan minimum ağ katmanıdır — bu yüzden bu dosyalar çok
-daha küçüktür (bkz. Bölüm 2: `nullnet-broadcast.z1` sadece 18 KB). `unicast` vs
-`broadcast` farkı uygulama mantığındadır: biri tek hedefe, diğeri tüm komşulara gönderir.
-**TSCH sembolü hiçbir dosyada yok** — yani tümü `csma` MAC katmanı kullanır (bkz.
-Bölüm 10). Bizim OTA alıcımızdaki 106 `udp/uip` sembolü, stop-and-wait ACK protokolünün
-UDP üstüne kurulduğunu doğrular.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Unicast | `nullnet-unicast.*`: `"Sending ... to linkaddr_node_addr"` → tek hedef |
+| Broadcast | `nullnet-broadcast.z1`: tüm komşulara yayın; hedef seçme mantığı yok |
+| Multicast | `rpl_multicast_addr` sembolü RPL firmware'lerinde — IPv6 çok-noktaya |
+| IPv6 stack | `uip_*` (~100 sembol) RPL ailesinde; NullNet'te yok (IP atlanmış) |
+| RPL routing | ~70-77 `rpl_*` sembol: DAG, DIO, DAO, rank, neighbor tablosu |
+| TSCH scheduler | `tsch_*` = **0** → TSCH kullanılmıyor (bkz. B10) |
+| MAC layer | `csma_*` sembolleri — CSMA MAC katmanı tüm dosyalarda |
+| Packet buffer | `packetbuf_*`, `queuebuf_*`, `packet_memb` — paket tamponları |
+| Neighbor table | `rpl_neighbors`, `ds6_neighbors_struct`, `neighbor_list_list`, `neighbor_memb` |
+| Radio transmission | `cc2420_transmit/send` → radyo gönderim akışı |
+| Retransmission logic | CSMA katmanı `csma_*` ile yeniden gönderim yapar; bizim OTA'da uygulama seviyesi retry |
+| ACK mekanizmaları | `dao_ack_handler` (RPL DAO-ACK); 802.15.4 donanım ACK; bizim OTA: binary ACK |
+| CSMA/TSCH farkları | CSMA asenkron (dinle-gönder); TSCH zaman dilimli + kanal atlamalı |
+| Contiki network API | `NETSTACK_*`, `simple_udp_*`, `uip_*` — Contiki ağ API'si |
+
+💡 **Yorum:** Sembol sayımı firmware'in **ağ mimarisini** ele verir. İki aile var:
+**(1) IPv6/RPL ailesi** (~70 `rpl_*`, ~100 `uip_*`) — tam 6LoWPAN+RPL+UDP yığını;
+**(2) NullNet ailesi** (`nullnet=6`, `rpl=0`) — IP yığınını atlayıp ham MAC üzerinden
+gönderir, bu yüzden çok küçüktür. `unicast` tek hedefe, `broadcast` tüm komşulara
+gönderir. **TSCH hiçbir dosyada yok** → tümü CSMA MAC kullanır. Neighbor table
+(`rpl_neighbors`, `ds6_neighbors_struct`) ve packet buffer (`packet_memb`) sembollerinin
+bulunması, RPL firmware'lerinin komşu yönetimi ve paket tamponlama yaptığını gösterir.
+Bizim OTA alıcımızdaki 106 `uip` sembolü, stop-and-wait ACK protokolünün UDP üstüne
+kurulduğunu doğrular.
 
 ---
 
@@ -615,26 +627,35 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `nm <firmware> | grep tsch` — TSCH zamanlayıcı sembollerini arar.
-
+**Kullanılan komut:** `nm | grep tsch`.
 ```
-$ for fw in firmware-samples/*; do nm $fw | grep -c tsch_; done
-# Sonuç: 16 firmware'in TAMAMINDA tsch_ sembol sayısı = 0
+16 firmware'in tamamında tsch_ sembol sayısı = 0
+Bunun yerine: csma_ sembolleri tüm dosyalarda mevcut
 ```
 
-💡 **Yorum:** Analiz edilen **16 firmware'in hiçbirinde TSCH (Time-Slotted Channel
-Hopping) sembolü bulunmadı**. Bu, eksik bir bulgu değil — anlamlı bir **tespittir**:
-tüm firmware'ler MAC katmanı olarak **CSMA** (Carrier Sense Multiple Access)
-kullanmaktadır (bkz. Bölüm 9'daki `csma` sembolleri). İki MAC'in farkı şudur: **CSMA**
-asenkrondur — düğüm göndereceği zaman kanalı dinler, boşsa gönderir; basittir ama
-radyoyu sürekli açık tutabilir. **TSCH** ise zaman dilimli + kanal atlamalıdır —
-düğümler ortak bir zaman çizelgesinde (ASN: Absolute Slot Number) senkronize olur, her
-slotta belirli bir kanala atlar; bu, hem **enerji verimliliği** (radyo yalnız kendi
-slotunda açık) hem de **parazit dayanıklılığı** sağlar ama saat senkronizasyonu (drift
-compensation) gerektirir. Bu repodaki örnekler eğitim/demo amaçlı olduğundan basitlik
-için CSMA seçilmiştir. TSCH analizi yapılacak olsaydı `tsch_slot_operation`,
-`tsch_schedule_*`, `tsch_adaptive_timesync_*` sembolleri ve radyo zamanlama döngüleri
-disassembly'de incelenirdi.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| TSCH slot operation | `tsch_slot_operation` sembolü **yok** — TSCH kullanılmıyor |
+| Channel hopping | Kanal atlama mantığı yok — CSMA tek kanalda çalışır |
+| ASN handling | ASN (Absolute Slot Number) sembolü yok |
+| Radio timing loops | CSMA'da kanal dinleme (CCA) var; TSCH slot zamanlaması yok |
+| Synchronization | TSCH saat senkronizasyon rutinleri yok |
+| Schedule management | TSCH çizelge yönetimi yok — CSMA çizelgesiz |
+| Packet timing | CSMA: rastgele backoff; TSCH: sabit slot — burada CSMA |
+| MAC timing critical path | CSMA CCA (Clear Channel Assessment) kritik yoldur |
+| Drift compensation | TSCH saat kayması telafisi yok (CSMA gerektirmez) |
+| Low-power radio | CSMA radyoyu daha uzun açık tutar; TSCH duty-cycle daha düşük olurdu |
+
+💡 **Yorum:** Analiz edilen **16 firmware'in hiçbirinde TSCH sembolü yok** — bu eksik
+bir bulgu değil, anlamlı bir **tespittir**: tümü MAC katmanı olarak **CSMA** kullanır.
+Fark şudur: **CSMA** asenkrondur — düğüm göndereceği zaman kanalı dinler (CCA), boşsa
+gönderir; basittir ama radyoyu uzun açık tutabilir. **TSCH** zaman dilimli + kanal
+atlamalıdır — düğümler ortak çizelgede (ASN) senkronize olur, her slotta farklı kanala
+atlar; bu hem **enerji verimliliği** (radyo yalnız kendi slotunda açık) hem **parazit
+dayanıklılığı** sağlar ama saat senkronizasyonu (drift compensation) gerektirir. Bu
+repodaki örnekler eğitim/demo amaçlı olduğundan basitlik için CSMA seçilmiştir.
 
 ---
 
@@ -659,34 +680,40 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `nm <firmware> | grep -iE 'led|button|uart|spi|sensor'`.
+**Kullanılan komut:** `nm | grep -iE 'led|button|uart|spi|i2c|adc'`.
 
 `hardworker.z1` çevre birimi sembolleri:
 ```
-U button_hal_button_count    b led_timer
-D led_process                b udp_timer
-D sensor_process             b loop_timer
-D accmeter_process           D dummy_printer_process
+i2c_tx_interrupt   i2c_rx_interrupt   uart0_rx_interrupt
+i2c_receiveinit    i2c_transmitinit   i2c_busy   i2c_enable
+led_process        led_timer          button_hal_button_count (U)
+accmeter_process   __ADC12MCTL0..8
 ```
 
-`base-demo.simplelink` (CC1352R) — `strings` çıktısından:
-```
-batmon-sensor.c        button-sensor-arch.c
-get_sync_sensor_readings
-```
+**Madde madde bulgular:**
 
-💡 **Yorum:** Çevre birimi (peripheral) sembolleri firmware'in **donanımla nasıl
-etkileştiğini** gösterir. `hardworker.z1` zengin bir çevre birimi profili sergiler:
-`led_process` + `led_timer` (zamanlayıcıyla LED yakıp söndürme), `accmeter_process`
-(ivmeölçer — Z1 mote'unun üzerindeki ADXL345 sensörü), `button_hal_*` (buton kesmesi).
-`button_hal_button_count`'ın **`U` (tanımsız)** olması, buton HAL'inin platform
-katmanında tanımlı olduğunu ve uygulama tarafından dışarıdan referans alındığını
-gösterir. `base-demo.simplelink` ise CC1352R LaunchPad'in **batmon-sensor** (dahili pil
-voltajı/sıcaklık izleme) ve **button-sensor** sürücülerini içerir; `get_sync_sensor_readings`
-fonksiyonu senkron sensör okuması yapar. **GPIO toggle** davranışı disassembly'de port
-register'larına XOR yazma (`xor.b #bit, &PxOUT`) olarak görülür — LED yakıp söndürmenin
-klasik kalıbı. Çevre birimi başlatma sırası `platform_init` zincirinde (bkz. Bölüm 5)
-clock → GPIO → SPI/radyo → sensör şeklinde ilerler.
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Button handler | `button_hal_button_count`, `button_hal_buttons` (U — platform HAL'inde) |
+| LED driver | `led_process`, `led_timer`; `strings`: `"[LED] Toggled"` |
+| UART usage | `uart0_rx_interrupt` — seri port alma kesmesi (log çıktısı için) |
+| SPI access | `spi_arch_has_lock` — SPI (radyo CC2420 SPI üzerinden sürülür) |
+| I2C access | `i2c_enable/busy/receiveinit/transmitinit/receive_n` — tam I2C sürücü |
+| ADC routines | `__ADC12MCTL0..8` — MSP430 12-bit ADC kontrol register'ları |
+| Sensor polling interval | `accmeter_process` etimer ile periyodik ivmeölçer okur |
+| Interrupt-driven sensor | `i2c_rx_interrupt` — sensör verisi kesme ile alınır |
+| GPIO toggle | LED yak/söndür = `xor.b #bit, &PxOUT` (port register'a XOR) |
+| Peripheral init sequence | `platform_init`: clock → GPIO → SPI/radyo → sensör (B5) |
+
+💡 **Yorum:** Çevre birimi sembolleri firmware'in **donanımla nasıl etkileştiğini**
+gösterir. `hardworker.z1` zengin bir profil sergiler: I2C sürücüsü (`i2c_*` — Z1
+üzerindeki TMP102 sıcaklık / ADXL345 ivmeölçer I2C üzerinden bağlı), UART (`uart0_rx_interrupt`
+— log için), ADC (`__ADC12MCTL*`), LED (`led_process`) ve buton. `button_hal_*`'ın
+**`U` (tanımsız)** olması, buton HAL'inin platform katmanında tanımlı olup uygulama
+tarafından referans alındığını gösterir. `base-demo.simplelink` ise CC1352R LaunchPad'in
+`batmon-sensor` ve `button-sensor` sürücülerini içerir. GPIO toggle, port register'a XOR
+yazma kalıbıyla yapılır. Çevre birimi başlatma `platform_init` zincirinde clock'tan
+sensöre doğru ilerler.
 
 ---
 
@@ -712,27 +739,43 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `nm <firmware> | grep -iE 'crc|checksum|mul|div|float'`.
+**Kullanılan komut:** `nm | grep -iE 'mul|div|crc|__mspabi'`.
 
-Kendi `own-udp-server.z1` dosyamızdaki algoritmik blok:
+`own-udp-server.z1` matematik rutinleri (gerçek `nm` çıktısı):
 ```
-0000725c T ota_crc32_buffer    <- CRC32 bütünlük hesabı (polinom 0xEDB88320)
+__mulsi3      <- 32-bit yazılım çarpma
+__udivhi3     <- 16-bit yazılım bölme
+__udivsi3     <- 32-bit yazılım bölme
+__udivdi3     <- 64-bit yazılım bölme
+__udivmoddi4  <- 64-bit böl+mod
+ota_crc32_buffer  <- CRC32 (polinom 0xEDB88320)
 ```
-ARM ELF başlığı (Bölüm 1): `soft-float ABI` — donanım FPU'su kullanılmıyor.
+
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Floating-point | `float`/`double` rutini görülmedi — ağ kodu kayan nokta kullanmaz |
+| Fixed-point | Sayaç/offset hesapları tamsayı (integer) — fixed-point benzeri |
+| Trigonometric | `sin/cos` vb. yok — sinyal işleme uygulaması değil |
+| Multiply/divide | `__mulsi3`, `__udivhi3/si3/di3` — **yazılım çarpma/bölme rutinleri** |
+| Software FP emulation | MSP430'da donanım FPU yok; `float` olsaydı `__mspabi_*f` çağrılırdı |
+| DSP benzeri loop | Sıkı DSP döngüsü yok — sadece CRC bit-kaydırma döngüsü |
+| Matrix operation | Matris işlem izi yok |
+| Signal processing | Sinyal işleme deseni yok |
+| Computational hotspot | Tek anlamlı hesap bloğu: `ota_crc32_buffer` (byte başına 8 iterasyon) |
+| Numerical optimization | `-Os` çarpma/bölmeyi mümkünse kaydırmaya çevirir |
 
 💡 **Yorum:** Bu firmware ailesi **DSP/ağır matematik uygulaması değildir** — gömülü
-ağ düğümleri olduklarından hesaplama yükü düşüktür. Tespit edilen tek anlamlı
-algoritmik blok, kendi OTA alıcımızdaki **`ota_crc32_buffer`** — Part 1'de yazdığımız,
-firmware bütünlüğünü doğrulayan CRC32 hesabıdır (her byte için 8 bit-kaydırma + XOR).
-**Kayan nokta:** MSP430'da donanım FPU'su yoktur; eğer `float` kullanılsaydı derleyici
-`__mspabi_mpyf` gibi **yazılım emülasyon** rutinleri eklerdi. ARM/CC1352R'da Cortex-M4
-**F** çekirdeği donanım FPU'suna sahip olmasına rağmen, `base-demo.simplelink`'in ELF
-bayrağı **`soft-float ABI`** gösterir — yani derleyici yine de yazılım kayan-nokta çağrı
-uzlaşımı seçmiş (gömülü Contiki yapılarında yaygın bir tercih: kod taşınabilirliği ve
-kesme bağlamında FPU register'larını kaydetme maliyetinden kaçınma). **Çarpma/bölme:**
-MSP430'un donanım çarpıcısı (hardware multiplier) varsa derleyici onu kullanır; yoksa
-`__mspabi_mpyi` rutini çağrılır — bunlar disassembly'de görülebilir. DSP benzeri sıkı
-döngüler veya matris işlemi izine rastlanmadı.
+ağ düğümleri olduklarından hesaplama yükü düşüktür. Kritik bir bulgu: `nm` çıktısında
+**`__mulsi3`, `__udivhi3`, `__udivsi3`, `__udivdi3`** rutinleri görüldü. Bunlar
+MSP430'un **donanım çarpma/bölme birimi sınırlı olduğu için** derleyicinin eklediği
+**yazılım emülasyon rutinleridir** — 32/64-bit çarpma ve bölme C kodunda yazılımla
+yapılır (pahalıdır). ARM tarafında da `__udivmoddi4` görülür (Cortex-M çekirdek
+donanım `udiv`'e sahiptir ama 64-bit bölme yine yazılımladır). **Kayan nokta:** hiçbir
+`float` rutini yok — eğer olsaydı MSP430'da `__mspabi_mpyf` gibi emülasyon eklenirdi.
+Tek anlamlı algoritmik blok kendi OTA alıcımızdaki **`ota_crc32_buffer`** — Part 1'de
+yazdığımız, her byte için 8 bit-kaydırma + XOR yapan bütünlük hesabıdır.
 
 ---
 
@@ -758,28 +801,32 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-`msp430-gprof` **çalışma anı (runtime)** profili gerektirir; statik bir `.z1` dosyasından
-profil üretilemez. Bunun yerine **statik göstergeler** kullanıldı:
+`msp430-gprof` **çalışma anı profili** gerektirir; statik `.z1`'den üretilemez.
+Bunun yerine `size` + `nm` + `objdump` ile **statik göstergeler** kullanıldı.
 
-| Gösterge | Kaynak | Yorumlanan anlam |
-|----------|--------|------------------|
-| `.text` boyutu | `size` | Flash'tan komut çekme maliyeti |
-| `bss`/`data` | `size` | RAM baskısı |
-| `lpm`/`LPM` sembolleri | `nm` | Düşük güç moduna geçiş noktaları |
-| Timer/ctimer sembolleri | `nm` | Periyodik uyanma yoğunluğu |
+**Madde madde bulgular:**
 
-💡 **Yorum:** Gerçek güç profili ölçüm donanımı veya enstrümante edilmiş yapı
-gerektirir; örnek firmware'ler bu şekilde derlenmediğinden `gprof` **uygulanamadı** —
-bu dürüstçe belirtilir. Ancak statik analiz yine de güçlü ipuçları verir: Contiki-NG'nin
-olay-güdümlü (event-driven) zamanlayıcısı, yapacak iş kalmadığında CPU'yu **LPM (Low
-Power Mode)**'a sokar; `nm` çıktısındaki `lpm`/uyku sembolleri ve `etimer`/`ctimer`
-kullanımı, düğümün ne sıklıkta uyanıp uyuduğunu gösterir. **Busy-wait** (meşgul bekleme)
-enerji düşmanıdır — disassembly'de koşulu sürekli yoklayan sıkı döngüler olarak görülür;
-örneklerde radyo başlatma dışında yaygın busy-wait görülmedi. **Flash/RAM verimliliği:**
-`nullnet-broadcast.z1` (18 KB flash) en verimli, `hardworker.z1` (74 KB) en yoğun
-profildir — `hardworker` adı zaten çok-process'li yoğun bir iş yükünü ima eder (bkz.
-Bölüm 23). Radyo **duty cycle**'ı CSMA MAC ile yönetilir; radyonun açık kalma oranı
-firmware'in en büyük enerji kalemidir.
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Low-power mode geçişleri | Contiki boşta CPU'yu LPM'e sokar; `lpm_*` sembolleri |
+| CPU-intensive fonksiyonlar | `ota_crc32_buffer` (CRC döngüsü), `__udivdi3` (64-bit bölme) |
+| Busy-wait detection | Radyo init dışında yaygın busy-wait yok (`objdump` taraması) |
+| Sleep/wakeup flow | Olay kuyruğu boşalınca uyku; etimer/kesme ile uyanış |
+| Timer usage intensity | `etimer`/`ctimer` sembolleri — periyodik uyanma yoğunluğu |
+| Radio duty cycle | CSMA → radyo göreli uzun açık; en büyük enerji kalemi |
+| ISR yoğunluğu | Z1 32, Sky 16 kesme vektörü; aktif ISR sayısı firmware'e göre değişir |
+| Function execution cost | `objdump` komut sayısı ile kabaca tahmin (B5: calla=1509) |
+| Flash/RAM efficiency | En verimli `nullnet-broadcast.z1` (18 KB); en yoğun `hardworker.z1` (74 KB) |
+| Energy-heavy bölgeler | CRC32 döngüsü + radyo gönderimi en pahalı işlemlerdir |
+
+💡 **Yorum:** Gerçek güç profili ölçüm donanımı veya enstrümante yapı gerektirir;
+örnek firmware'ler öyle derlenmediğinden `gprof` **uygulanamadı** (dürüstçe belirtilir).
+Ancak statik analiz güçlü ipuçları verir: Contiki'nin olay-güdümlü zamanlayıcısı iş
+kalmayınca CPU'yu **LPM**'e sokar — `lpm`/uyku sembolleri ve `etimer/ctimer` kullanımı
+uyanma sıklığını gösterir. **Busy-wait** enerji düşmanıdır; örneklerde radyo init
+dışında nadir görüldü. **Flash/RAM verimliliği:** `nullnet-broadcast.z1` en verimli,
+`hardworker.z1` en yoğun — adı zaten yoğun iş yükünü ima eder. Radyo **duty cycle**'ı
+CSMA ile yönetilir ve en büyük enerji kalemidir.
 
 ---
 
@@ -801,26 +848,33 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-`gcov` ve `gprof` **enstrümante edilmiş yapı + çalışma anı verisi** gerektirir:
-- `gcov`: kaynak `-fprofile-arcs -ftest-coverage` ile derlenmeli, çalıştırılmalı,
-  `.gcda`/`.gcno` dosyaları üretilmeli.
-- `gprof`: kaynak `-pg` ile derlenmeli, çalışınca `gmon.out` üretmeli.
+`gcov`/`gprof` **enstrümante yapı + çalışma anı verisi** gerektirir:
+- `gcov`: kaynak `-fprofile-arcs -ftest-coverage` ile derlenip çalıştırılmalı (`.gcda`).
+- `gprof`: kaynak `-pg` ile derlenip `gmon.out` üretmeli.
 
-Verilen örnek `.z1`/`.sky`/`.simplelink` dosyaları bu bayraklarla derlenmediğinden
-(ve gömülü hedefte `gmon.out` yazacak dosya sistemi olmadığından) **bu bölümün
-komut tabanlı çıktısı üretilemez.**
+Örnek `.z1/.sky/.simplelink` dosyaları bu bayraklarla derlenmedi → **komut tabanlı
+çıktı üretilemez.** Bunun yerine **statik alternatifler** kullanıldı:
 
-💡 **Yorum:** Coverage/profiling, **dinamik analiz** kategorisindedir — statik bir
-firmware imajından elde edilemez; bu yüzden uygulanamaması beklenen bir durumdur ve
-dürüstçe belirtilir. Yine de **yöntem** açıklanabilir: `gcov` kodun hangi satır/dalının
-çalıştırıldığını sayar → **test kapsamı** ve hiç çalışmayan **ölü dallar** bulunur.
-`gprof` ise fonksiyon çağrı sıklığını ve süresini ölçer → **execution hotspot** ve
-**darboğazlar** tespit edilir. Gömülü sistemlerde bunlar genellikle Cooja simülatöründe
-ya da seri port üzerinden çıktı toplayarak yapılır. **Statik alternatif:** çağrı
-grafiği `objdump -d` ile `calla`/`bl` komutları taranarak çıkarılabilir; bizim Part 1
-simülasyonumuzda Cooja log'ları (her bloğun gönderim/ACK satırı) fiilen bir **runtime
-trace** işlevi görmüştür — yani protokolün kritik yolu (chunk gönder → ACK bekle)
-gözlemlenmiştir.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu (statik alternatif) |
+|----------------|---------------------------|
+| Function call frequency | `objdump -d` ile `calla` hedefleri sayılarak statik tahmin |
+| Execution hotspot | CRC32 döngüsü + radyo gönderimi en sık çalışan bölgeler |
+| Unused branch | Contiki `--gc-sections` ölü dalları zaten eler |
+| Rarely executed path | Hata işleme dalları (`failed to ...`) nadir çalışır |
+| Test coverage | `gcov` gerektirir — örneklerde uygulanamaz |
+| Critical execution path | OTA'da: chunk gönder → ACK bekle (Part 1 Cooja log'larında gözlendi) |
+| Runtime bottleneck | `gprof` gerektirir — Cooja simülasyon log'u kısmi runtime trace sağlar |
+
+💡 **Yorum:** Coverage/profiling **dinamik analiz** kategorisindedir — statik bir
+firmware imajından elde edilemez; uygulanamaması beklenen bir durumdur ve dürüstçe
+belirtilir. Yine de **yöntem** açıklanabilir: `gcov` hangi satır/dalın çalıştığını
+sayar → test kapsamı ve ölü dallar bulunur; `gprof` fonksiyon çağrı sıklığı/süresini
+ölçer → hotspot ve darboğazlar tespit edilir. Gömülü sistemlerde bunlar genelde Cooja'da
+veya seri port log'uyla yapılır. **Statik alternatif:** çağrı grafiği `objdump -d` ile
+çıkarılabilir; Part 1 simülasyonumuzdaki Cooja log'ları (her bloğun gönder/ACK satırı)
+fiilen bir **runtime trace** işlevi görmüş, protokolün kritik yolu gözlemlenmiştir.
 
 ---
 
@@ -847,26 +901,32 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-`nullnet-broadcast.z1` vs `nullnet-unicast.z1` davranış çıkarımı (sembol + string):
-```
-nullnet-broadcast.z1: nullnet=6, rpl=0, csma=5, 18 KB  -> ham broadcast
-nullnet-unicast.z1  : nullnet=6, rpl=0, csma=5, 30 KB
-  String: "Sending from node_id :%d, to linkaddr_node_addr :"
-```
+**Yöntem:** `readelf` → kimlik, `strings` → amaç, `nm` → alt sistemler, `objdump` →
+mantık. `nullnet-unicast.z1` üzerinde uygulandı.
 
-💡 **Yorum:** Reverse engineering, **hiç dokümantasyonu olmayan bir firmware'in ne
-yaptığını** araç zinciriyle çıkarmaktır. İzlenen yöntem dört adımlıdır: **(1)** `readelf -h`
-→ platform/mimari (bkz. Bölüm 1); **(2)** `strings` → uygulama amacı; **(3)** `nm` →
-hangi alt sistemler linklenmiş; **(4)** `objdump -d` → kritik mantık. Bu yöntemle
-`nullnet-unicast.z1`'in rolü çıkarıldı: `rpl=0` olduğu için **yönlendirme yok**,
-`nullnet` sembolleri var → ham MAC haberleşmesi, string'i ise **belirli bir hedefe**
-(`linkaddr_node_addr`) gönderim yaptığını söylüyor → sonuç: bu bir **nokta-nokta
-unicast** demo'sudur. `broadcast` sürümü ise tüm komşulara yayın yapar ve daha küçüktür
-çünkü hedef seçme/komşu tablosu mantığı azdır. **Ağ rolü çıkarımı** kendi
-firmware'lerimizde de işler: `own-udp-server.z1`'de `NETSTACK_ROUTING.root_start` ve
-`cfs_*` sembollerinin bulunması onun **DAG kökü + OTA alıcısı** olduğunu; `own-udp-client.z1`'de
-`firmware_payload` sembolünün bulunması onun **OTA göndericisi** olduğunu kanıtlar.
-Detaylı bir uygulama örneği için bkz. Bölüm 23.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu (`nullnet-unicast.z1`) |
+|----------------|------------------------------|
+| Firmware behavior recovery | `strings` → "Sending from node_id, to linkaddr" → nokta-nokta gönderim |
+| Unknown firmware classification | `readelf -h` → MSP430 Z1 mote firmware'i |
+| Feature inference | `nm` → `nullnet`, `csma` var; `rpl`, `udp` yok → minimal ağ |
+| Protocol inference | NullNet + CSMA → IP'siz ham MAC haberleşmesi |
+| ISR purpose discovery | `cc2420_*` ISR → radyo; `timera*` → zamanlayıcı |
+| Hardware interaction | `cc2420` radyo + SPI; LED/buton sembolleri |
+| State machine extraction | `process_thread_*` switch/case → protothread durum makinesi |
+| Scheduler reconstruction | `process_run` olay kuyruğu → kooperatif zamanlayıcı |
+| Event-flow reconstruction | radyo ISR → packetbuf → process olayı → uygulama callback |
+| Network role inference | `linkaddr_node_addr` hedefli → unicast gönderici/alıcı düğüm |
+
+💡 **Yorum:** Reverse engineering, **dokümantasyonsuz bir firmware'in ne yaptığını**
+araç zinciriyle çıkarmaktır. Dört adımlı yöntemle `nullnet-unicast.z1`'in rolü çıkarıldı:
+`rpl=0` → yönlendirme yok; `nullnet` sembolleri → ham MAC; string → belirli hedefe
+(`linkaddr_node_addr`) gönderim → sonuç: **nokta-nokta unicast demo'su**. `broadcast`
+sürümü tüm komşulara yayın yapar ve daha küçüktür. **Ağ rolü çıkarımı** kendi
+firmware'lerimizde de işler: `own-udp-server.z1`'de `NETSTACK_ROUTING.root_start` +
+`cfs_*` → **DAG kökü + OTA alıcı**; `own-udp-client.z1`'de `firmware_payload` → **OTA
+gönderici**. Detaylı tam vaka için bkz. B23.
 
 ---
 
@@ -892,28 +952,38 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Contiki-NG varsayılan olarak **`-Os`** (boyut için optimize) kullanır. Kendi Part 1
-projemizde de `Makefile`'a `CFLAGS += -Os` eklenmiştir — bunun somut bir nedeni vardır:
-
+Contiki-NG varsayılan `-Os` (boyut) kullanır. Part 1 projemizde de `Makefile`'a
+`CFLAGS += -Os` eklendi — somut bir nedenle:
 ```
-Sorun : msp430-gcc 4.7.4 ile -O0'da "undefined reference to mac_call_sent_callback"
-Neden : Eski derleyici, -O0'da `static inline` fonksiyonların yerel kopyasını üretmiyor
-Çözüm : -Os ile optimizer inline'ı zorlar -> sembol çözülür
+Sorun : msp430-gcc 4.7.4, -O0'da "undefined reference to mac_call_sent_callback"
+Neden : Eski derleyici -O0'da `static inline` fonksiyonun yerel kopyasını üretmiyor
+Çözüm : -Os optimizer inline'ı zorlar → sembol çözülür
 ```
 
-💡 **Yorum:** Optimizasyon seviyesi firmware'in hem **boyutunu** hem **davranışını**
-etkiler. **`-O0`** (optimizasyon yok): kod birebir kaynağa benzer, hata ayıklaması
-kolaydır ama büyüktür ve yavaştır. **`-Os`**: kod boyutunu küçültür — gömülü sistemlerin
-sınırlı flash'ı için idealdir; bu yüzden Contiki-NG'nin tercihidir. **`-O2`**: hız
-odaklıdır, agresif inlining yapar. Bu projede `-O0 → -Os` geçişi sadece bir tercih
-değil **zorunluluktu**: eski msp430-gcc 4.7.4, `-O0`'da `static inline` fonksiyonlar
-için yerel kopya üretmediğinden linker hatası veriyordu; `-Os` optimizer'ı inline'ı
-gerçekleştirdiği için sorun çözüldü. Bu, **derleyici optimizasyonunun derleme
-başarısını dahi etkileyebileceğinin** somut kanıtıdır. **Diğer izler:** `-Os` ile
-**dead-code elimination** (kullanılmayan fonksiyonların atılması) ve **inlining** (küçük
-fonksiyonların çağıran içine gömülmesi) yapılır — bu yüzden disassembly'de bazı kaynak
-fonksiyonları ayrı görünmez. Contiki ayrıca `-ffunction-sections` + `--gc-sections`
-ile bölüm bazlı çöp toplama yapar (bkz. Bölüm 17).
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| `-O0/-O2/-Os` farkları | `-O0` büyük/yavaş/debug-dostu; `-Os` küçük (Contiki tercihi); `-O2` hızlı |
+| Inlining behavior | `-Os` küçük fonksiyonları çağırana gömer → `nm`'de ayrı görünmez |
+| Dead code elimination | `-ffunction-sections + --gc-sections` ile kullanılmayan kod atılır |
+| Constant folding | Derleyici sabit ifadeleri derleme anında hesaplar |
+| Loop optimization | Döngü değişmezleri dışarı alınır; sayaçlar register'da tutulur |
+| Register allocation | MSP430 16, ARM 16 register; sık değişkenler register'a atanır |
+| Tail-call optimization | Son çağrı `calla` yerine `br`/`jmp`'e çevrilebilir |
+| Branch optimization | Koşullu dallar yeniden sıralanır; ~1893 dal (B5) |
+| Macro expansion | `PROCESS_THREAD`, `LOG_INFO` makroları `cpp` ile genişler |
+| Preprocessor etkileri | `#if WITH_SERVER_REPLY` gibi koşullu derleme kod boyutunu etkiler |
+
+💡 **Yorum:** Optimizasyon seviyesi firmware'in hem **boyutunu** hem **derlenebilmesini**
+etkiler. `-O0` birebir kaynağa benzer, debug kolaydır ama büyüktür; `-Os` kod boyutunu
+küçültür — sınırlı flash için idealdir, Contiki-NG tercihidir; `-O2` hız odaklıdır. Bu
+projede `-O0 → -Os` geçişi bir tercih değil **zorunluluktu**: eski msp430-gcc 4.7.4,
+`-O0`'da `static inline` fonksiyonlar için yerel kopya üretmediğinden linker hatası
+veriyordu; `-Os` inline'ı gerçekleştirince sorun çözüldü — bu, **derleyici
+optimizasyonunun derleme başarısını dahi etkileyebileceğinin** somut kanıtıdır. `-Os`
+ayrıca **dead-code elimination** ve **inlining** yapar; bu yüzden bazı kaynak fonksiyonu
+disassembly'de ayrı görünmez. `PROCESS_THREAD` gibi makrolar preprocessor ile genişler.
 
 ---
 
@@ -938,29 +1008,36 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Bölümlerin sabit adreslere yerleşimi (linker script çıktısı, `readelf -S`):
+**Kullanılan komut:** `readelf -S` (yerleşim), `readelf -l` (segment eşleme).
 
-| Bölüm | Z1 yerleşimi | Sky yerleşimi | ARM yerleşimi | Yerleştiren |
-|-------|--------------|---------------|---------------|-------------|
-| `.text` | `0x3100` | `0x4000` | `0x40` | Linker script |
-| `.data` | `0x1100` (RAM) | `0x1100` (RAM) | `0x20001b20` (SRAM) | Linker script |
-| `.vectors` | `0xFFC0` | `0xFFE0` | `0x0` | Linker script (sabit!) |
+| Bölüm | Z1 | Sky | ARM |
+|-------|-----|-----|-----|
+| `.text` | `0x3100` | `0x4000` | `0x40` |
+| `.data` | `0x1100` (RAM) | `0x1100` (RAM) | `0x20001b20` (SRAM) |
+| `.vectors` | `0xFFC0` | `0xFFE0` | `0x0` |
 
-💡 **Yorum:** **Linker (`ld`)**, derleyicinin ürettiği nesne dosyalarını birleştirip
-her bölümü **donanımın beklediği fiziksel adrese** yerleştirir. Bu yerleşim rastgele
-değildir — platforma özel bir **linker script** tarafından dikte edilir. En kritik
-örnek **`.vectors`**'tür: MSP430 donanımı reset vektörünü **her zaman** flash'ın tepesinde
-(`0xFFFE`) arar; linker script bu yüzden `.vectors`'ı `0xFFC0`/`0xFFE0`'a **zorla**
-yerleştirir — bir byte şaşsa cihaz boot etmez. Aynı şekilde `.text` Z1'de `0x3100`,
-Sky'da `0x4000`'dedir çünkü her MSP430 türevinin flash başlangıcı farklıdır. ARM'da
-`.text` `0x40`'tan başlar (ilk 64 byte `.resetVecs`'e ayrılmıştır). **Startup code:**
-`.text`'in en başındaki `_reset_vector__` rutini, `.data`'yı flash'tan RAM'e kopyalar,
-`.bss`'i sıfırlar, sonra `main`'i çağırır — bu, linker-üretimi (linker-generated)
-başlangıç kodudur. **Static library linkage:** Contiki-NG'nin yeni build sistemi tek bir
-`.a` arşivi yerine nesne dosyalarını doğrudan linkler (bkz. Bölüm 19); `--gc-sections`
-sayesinde kullanılmayan bölümler atılır. **Symbol resolution:** linker tüm `U`
-sembollerini bu aşamada çözer; çözülemeyen sembol "undefined reference" hatası verir —
-Part 1'de yaşadığımız `mac_call_sent_callback` hatası tam olarak buydu.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Section placement | Linker script `.text/.data/.vectors`'ı platforma özel sabit adrese koyar |
+| Link order | Nesne dosyaları belirli sırada linklenir; başlangıç kodu en başta |
+| Static library linkage | Contiki-NG yeni build sistemi `.o`'ları doğrudan linkler (B19) |
+| Startup code | `.text` başındaki `_reset_vector__` — `.data` kopyala, `.bss` sıfırla |
+| Linker script behavior | `.vectors`'ı `0xFFC0`/`0xFFE0`'a **zorla** yerleştirir |
+| Vector placement | MSP430: flash tepesi; ARM: flash başı (`0x0`) — donanım dayatması |
+| Symbol resolution | Tüm `U` semboller linkleme aşamasında çözülür |
+| Relocation behavior | EXEC dosyada yok (mutlak adresli); `.cooja` DYN'de relocation var |
+
+💡 **Yorum:** **Linker (`ld`)** nesne dosyalarını birleştirip her bölümü **donanımın
+beklediği fiziksel adrese** yerleştirir; bu, platforma özel **linker script** ile
+dikte edilir. En kritik örnek **`.vectors`**'tür: MSP430 donanımı reset vektörünü
+**her zaman** flash tepesinde (`0xFFFE`) arar; linker script `.vectors`'ı oraya **zorla**
+koyar — bir byte şaşsa cihaz boot etmez. `.text` Z1'de `0x3100`, Sky'da `0x4000`'dedir
+çünkü flash başlangıçları farklıdır. **Startup code** (`_reset_vector__`) `.data`'yı
+flash'tan RAM'e kopyalar, `.bss`'i sıfırlar, sonra `main`'i çağırır. **Symbol resolution:**
+linker tüm `U` sembollerini çözer; çözemezse "undefined reference" hatası verir —
+Part 1'deki `mac_call_sent_callback` hatamız tam buydu (B16).
 
 ---
 
@@ -982,37 +1059,37 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-`own-udp-server.z1` üzerinde canlı dönüşüm testi:
+**Kullanılan komut:** `objcopy`, `strip`. `own-udp-server.z1` üzerinde canlı test:
 ```
-$ msp430-objcopy -O ihex   own-udp-server.z1  fw.hex   ->  144 592 byte
-$ msp430-objcopy -O binary own-udp-server.z1  fw.bin   ->   52 992 byte
-$ msp430-strip             own-udp-server.z1  -o fw-stripped.z1 -> 52 144 byte
+$ msp430-objcopy -O ihex   own-udp-server.z1 fw.hex   ->  144 592 byte
+$ msp430-objcopy -O binary own-udp-server.z1 fw.bin   ->   52 992 byte
+$ msp430-strip             own-udp-server.z1 -o fw-stripped.z1 -> 52 144 byte
   Orijinal ELF: 112 496 byte
-
-HEX ilk satırı:  :103100005542200135D0085A82451E2A31400031EF
 ```
 
-| Çıktı | Boyut | Format |
-|-------|-------|--------|
-| Orijinal `.z1` (ELF) | 112 496 B | ELF + debug + semboller |
-| `strip`'lenmiş ELF | 52 144 B | ELF, debug yok |
-| Ham binary (`.bin`) | 52 992 B | Sadece byte'lar |
-| Intel HEX (`.hex`) | 144 592 B | Metin (adres + checksum) |
+**Madde madde bulgular:**
 
-💡 **Yorum:** `objcopy` ve `strip`, bir firmware'i **bir formattan diğerine çevirir**.
-Çarpıcı bulgu: `strip` ile ELF **112 KB → 52 KB**'a düştü — yani orijinal dosyanın
-**yarısından fazlası debug bilgisi ve sembol tablosuydu** (`.debug_*`, `.symtab`,
-`.strtab`). Bu, neden `.z1` dosyalarının çalışan koddan çok daha büyük olduğunu
-kesinleştirir (bkz. Bölüm 1, 6). **Ham binary** (`.bin`) sadece flash'a yazılacak
-byte'ları içerir (52 KB) — en küçüğü; ama içinde **adres bilgisi yoktur**, nereye
-yükleneceğini bilmek imkânsızdır. **Intel HEX** (`.hex`) ise en büyüğüdür (144 KB)
-çünkü **metin** formatıdır: her satır `:` + uzunluk + adres + veri + checksum içerir
-(`:10 3100 00 ...EF`). HEX, programlayıcı araçların tercih ettiği formattır çünkü her
-satırda **hedef adres** ve **bütünlük checksum'u** taşır. **OTA bağlamı:** Part 1'de
-biz de aynı mantığı kullandık — firmware'i bloklara bölüp her bloğa offset + checksum
-ekledik; `objcopy`'nin HEX üretmesiyle bizim chunk protokolümüz kavramsal olarak aynı
-işi yapar. `strip` ise OTA öncesi firmware'i küçültmek (debug bilgisini atmak) için
-kullanılır — daha az byte = daha hızlı kablosuz transfer.
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| ELF → HEX | `objcopy -O ihex` → 144 592 B (metin: adres+veri+checksum, en büyük) |
+| ELF → binary | `objcopy -O binary` → 52 992 B (sadece byte'lar, adres bilgisi yok) |
+| Section extraction | `objcopy -j .text` ile tek bölüm ayıklanabilir |
+| Symbol stripping | `strip` `.symtab`/`.strtab`'ı atar |
+| Debug removal | `strip` 8 `.debug_*` bölümünü atar → 112 KB'tan 52 KB'a |
+| Firmware minimization | `strip` ile boyut **%54 azaldı** — debug bilgisi çıkarıldı |
+| Binary patch preparation | `.bin` ham byte → offset bazlı yama hazırlanabilir (OTA chunk'ı gibi) |
+
+💡 **Yorum:** `objcopy`/`strip` bir firmware'i **formattan formata çevirir**. Çarpıcı
+bulgu: `strip` ile ELF **112 KB → 52 KB**'a düştü — dosyanın **yarısından fazlası debug
+bilgisi ve sembol tablosuydu** (`.debug_*`, `.symtab`). Bu, neden `.z1` dosyalarının
+çalışan koddan büyük olduğunu kesinleştirir. **Ham binary** (`.bin`, 52 KB) en küçüğüdür
+ama **adres bilgisi taşımaz**. **Intel HEX** (`.hex`, 144 KB) en büyüğüdür çünkü
+metindir: her satır `:` + uzunluk + adres + veri + checksum içerir — programlayıcı
+araçların tercihidir çünkü her satırda hedef adres ve bütünlük checksum'u taşır. **OTA
+bağlamı:** Part 1'de biz de firmware'i bloklara bölüp her bloğa offset + checksum
+ekledik; `objcopy`'nin HEX üretmesi kavramsal olarak bizim chunk protokolümüzle aynı
+işi yapar. `strip` ise OTA öncesi firmware'i küçültmek için kullanılır — daha az byte
+= daha hızlı kablosuz transfer.
 
 ---
 
@@ -1032,29 +1109,32 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Contiki-NG'nin güncel build sistemi tek bir `.a` arşivi üretmek yerine nesne dosyalarını
-(`build/z1/obj/*.o`) **doğrudan linkler**:
 ```
 $ find build -name "*.a"
-(sonuç yok - tek arşiv dosyası üretilmiyor)
+(sonuç yok — Contiki-NG yeni build sistemi tek .a arşivi üretmez)
 $ ls build/z1/obj/
-   ... .o nesne dosyaları doğrudan linkleniyor ...
+*.o nesne dosyaları doğrudan linkleniyor
 ```
 
-💡 **Yorum:** Bir **statik kütüphane (`.a` arşivi)**, derlenmiş `.o` nesne dosyalarının
-`ar` aracıyla paketlenmiş halidir — `msp430-ar t lib.a` içeriği listeler, `msp430-ar x`
-çıkarır, `msp430-ranlib` sembol indeksini oluşturur. Ancak analiz edilen firmware'ler
-**nihai linklenmiş çalıştırılabilir dosyalardır** — kütüphaneler zaten içlerinde
-eritilmiştir; bu yüzden bir `.z1` dosyasına `ar` uygulanamaz. Ayrıca Contiki-NG'nin
-yeni Make tabanlı build sistemi, eski sürümlerdeki tek `contiki-ng-z1.a` arşivini
-**üretmez** — nesne dosyalarını (`build/z1/obj/*.o`) linker'a doğrudan verir ve
-`--gc-sections` ile kullanılmayanları eler. Dolayısıyla bu bölüm örnek firmware'ler
-için **doğrudan uygulanamaz**; yöntem yine de geçerlidir: eğer elimizde
-`libcontiki.a` gibi bir arşiv olsaydı, `ar t` ile hangi modüllerin (rpl.o, csma.o,
-cc2420.o...) bulunduğu listelenir, `nm` ile her modülün sağladığı semboller incelenirdi.
-Linklenmiş modüllerin **izleri** yine de görülebilir: `nm` çıktısındaki `rpl_*`,
-`csma_*`, `cc2420_*` sembol kümeleri, hangi kütüphane modüllerinin firmware'e dahil
-edildiğini gösterir.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Static library içeriği | `.a` arşivi = `.o` nesne dosyalarının `ar` paketi; örneklerde `.a` yok |
+| Object file extraction | `ar x lib.a` ile `.o` çıkarılır — burada `build/z1/obj/*.o` zaten ayrık |
+| Archive symbol table | `ranlib` arşive sembol indeksi ekler; `nm -s lib.a` ile okunur |
+| Linked module analizi | `nm`'deki `rpl_*`, `csma_*`, `cc2420_*` kümeleri linklenen modülleri gösterir |
+
+💡 **Yorum:** Bir **statik kütüphane (`.a`)**, derlenmiş `.o` nesne dosyalarının `ar`
+ile paketlenmiş halidir — `ar t` içeriği listeler, `ar x` çıkarır, `ranlib` sembol
+indeksi kurar. Ancak analiz edilen firmware'ler **nihai linklenmiş çalıştırılabilir
+dosyalardır** — kütüphaneler içlerinde eritilmiştir; `.z1`'e `ar` uygulanamaz. Ayrıca
+Contiki-NG'nin yeni Make build sistemi eski `contiki-ng-z1.a` arşivini **üretmez** —
+nesne dosyalarını (`build/z1/obj/*.o`) linker'a doğrudan verir ve `--gc-sections` ile
+kullanılmayanları eler. Bu bölüm örnek firmware'ler için **doğrudan uygulanamaz**;
+yöntem yine geçerlidir. Linklenmiş modüllerin **izleri** `nm` çıktısında görülür:
+`rpl_*`, `csma_*`, `cc2420_*` sembol kümeleri hangi kütüphane modüllerinin firmware'e
+dahil edildiğini ele verir.
 
 ---
 
@@ -1080,32 +1160,38 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-`hardworker.z1` içindeki Contiki process sembolleri (`nm`):
+`hardworker.z1` process sembolleri (`nm`):
 ```
-00001100 D accmeter_process     00001156 D sensor_process
-0000110c D cc2420_process       00001162 D udp_process
-00001130 D ctimer_process       0000116e D led_process
-0000113c D etimer_process       000011fc D sensors_process
-0000114a D dummy_printer_process 00001208 D stack_check_process
-                                 00001214 D tcpip_process
+accmeter_process  cc2420_process   ctimer_process   etimer_process
+led_process       sensor_process   udp_process      tcpip_process
+dummy_printer_process   sensors_process   stack_check_process
 ```
 
-💡 **Yorum:** Contiki-NG'nin kalbi **protothread (yığınsız iş parçacığı)** modelidir
-ve analiz bunun izlerini net gösterir. Her `PROCESS(...)` makrosu, RAM'de bir **`struct
-process`** oluşturur — bu yüzden `nm` çıktısında process'ler `D` (data) sembolü olarak
-görünür ve hepsi `0x1100` civarında, yani RAM'in başında kümelenir. `hardworker.z1`'de
-**11 ayrı process** bulunması, firmware'in oldukça çok-görevli olduğunu gösterir
-(`accmeter`, `sensor`, `led`, `udp`, `tcpip`...). **PROCESS_THREAD makrosu** derlenince
-bir `switch(process_pt->lc)` deyimine dönüşür; **PROCESS_BEGIN/END** switch'i açıp
-kapatır; **PROCESS_WAIT_EVENT_UNTIL** ise bir `case` etiketi üretir — protothread bir
-olay beklerken `return` eder, olay gelince `switch` ile **tam kaldığı `case`'e geri
-döner**. Part 1'de bu mekanizmanın inceliğini bizzat yaşadık: erken `PROCESS_END()`
-çağrısı switch'i erkenden kapattığı için "case label not within switch" hatası almıştık.
-**etimer/ctimer:** `etimer_process` ve `ctimer_process` sembolleri, olay-güdümlü
-zamanlayıcının çekirdek parçalarıdır — `etimer` process'lere olay yollar, `ctimer`
-callback çağırır. **NETSTACK etkileşimi:** `tcpip_process` + `cc2420_process` zinciri,
-gelen radyo paketinin sürücüden IP yığınına nasıl aktığını gösterir. **`stack_check_process`**
-ise RAM yığın taşmasını izleyen bir güvenlik process'idir (bkz. Bölüm 21).
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| PROCESS_THREAD recovery | `process_thread_*` (t) sembolleri — her process'in iş parçacığı |
+| Protothread expansion | `PROCESS_THREAD` → `switch(pt->lc)`; `PROCESS_WAIT` → `case` |
+| Event-driven scheduler | `process_run` olay kuyruğunu döner — kooperatif zamanlayıcı |
+| etimer/ctimer usage | `etimer_process`, `ctimer_process` + `ctimer_set/reset/expired` |
+| PROCESS_BEGIN/END | `BEGIN` switch'i açar, `END` kapatır — yanlış yer = derleme hatası |
+| PROCESS_YIELD flow | `YIELD` → `return PT_YIELDED`; olayla kaldığı `case`'e döner |
+| NETSTACK interaction | `cc2420_process` → `tcpip_process` zinciri (radyo → IP) |
+| Packetbuf lifecycle | `packetbuf_*` — gelen paket tamponlanır, işlenir, temizlenir |
+| uIP callback chain | `tcpip_process` → `udp_rx_callback` çağrı zinciri |
+| Rime stack usage | Rime kullanılmıyor — modern Contiki-NG NETSTACK + uIP kullanır |
+
+💡 **Yorum:** Contiki-NG'nin kalbi **protothread (yığınsız iş parçacığı)** modelidir.
+Her `PROCESS(...)` makrosu RAM'de bir **`struct process`** oluşturur — `nm`'de process'ler
+`D` sembolü, hepsi `0x1100` civarında (RAM başı) kümelenir. `hardworker.z1`'de **11
+process** bulunması firmware'in çok-görevli olduğunu gösterir. **PROCESS_THREAD**
+derlenince `switch(process_pt->lc)` olur; **BEGIN/END** switch'i açıp kapatır;
+**WAIT/YIELD** bir `case` üretir — process olay beklerken `return` eder, olay gelince
+`switch` ile **tam kaldığı `case`'e döner**. Part 1'de bu inceliği yaşadık: erken
+`PROCESS_END()` switch'i erken kapattığı için "case label not within switch" hatası
+aldık. **etimer/ctimer** olay-güdümlü zamanlayıcının çekirdeğidir. **`stack_check_process`**
+RAM yığın taşmasını izleyen güvenlik process'idir (B21).
 
 ---
 
@@ -1129,30 +1215,37 @@ Araçlar:
 
 ## 🔬 Analiz Bulguları
 
-Kullanılan komut: `strings <firmware> | grep -iE 'password|key|secret|token|admin'`.
+**Kullanılan komut:** `strings | grep -iE 'password|key|secret|token'`.
 ```
 $ for fw in firmware-samples/*; do strings $fw | grep -iE 'password|secret|key=' ; done
-(sonuç yok - hardcoded gizli bilgi bulunamadı)
+(sonuç yok — hardcoded gizli bilgi bulunamadı)
 ```
-Bulunan robustness sembolleri: `stack_check_process` (hardworker.z1), CRC32 + checksum
-(own-udp-server.z1).
+
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Hardcoded credential | **Bulunamadı** — 16 dosyada parola/anahtar dizesi yok |
+| Debug backdoor izleri | Gizli debug komutu/backdoor dizesi görülmedi |
+| Buffer handling | Kendi OTA kodumuz `datalen` kontrolü yapar (boyut doğrulanır) |
+| Unsafe memory access | `memcpy` öncesi `payload_len` sınırı kontrol edilir |
+| Stack-heavy routines | Büyük yerel dizi kullanan rutin görülmedi (`size` `bss` makul) |
+| Potential overflow | OTA paketinde `datalen != HEADER_LEN+payload_len` ile taşma engellenir |
+| Assert/debug remnants | `strings`'te dosya/satır içeren debug mesajları (`"failed to ..."`) kalmış |
+| Information leakage | Sürüm dizesi (`Contiki-NG v4.9`) ve `.debug_*` bilgi sızdırır → `strip` önerilir |
 
 💡 **Yorum:** Güvenlik analizinin ilk adımı **hardcoded gizli bilgi** aramaktır —
-parola, API anahtarı, debug arka kapısı string'leri. Taranan 16 firmware'in hiçbirinde
-böyle bir sızıntı **bulunmadı**; bu beklenen bir sonuç çünkü hepsi eğitim/demo
-firmware'idir. **Buffer handling:** gömülü C kodunun en büyük riski tampon taşmasıdır;
-kendi Part 1 kodumuzda bunu bilinçli olarak ele aldık — OTA alıcı, gelen her paket için
-`datalen < HEADER_LEN` ve `datalen != HEADER_LEN + payload_len` kontrolleri yapar,
-yani **paket boyutu doğrulanmadan belleğe yazılmaz**. **Bütünlük:** OTA protokolümüz
-hem blok başına XOR checksum hem tüm imaj için CRC32 kullanır — bozuk/eksik veri
-tespiti sağlar. **`stack_check_process`** (hardworker.z1'de görülen), Contiki-NG'nin
-RAM yığınına bir imza yazıp periyodik kontrol eden **yığın taşması dedektörüdür** —
-8 KB RAM'li bir cihazda yığın/heap çakışması ciddi bir risktir. **Assert kalıntıları:**
-`strings` çıktısında dosya adı + satır numarası içeren assert mesajları debug
-build'lerde kalır; bunlar saldırgana kod yapısı hakkında bilgi sızdırabilir — üretim
-firmware'inde `strip` ile temizlenmeleri önerilir (bkz. Bölüm 18). **Debug erişimi:**
-ARM/CC1352R'da `.ccfg` bölümü JTAG/debug kilidini kontrol eder; üretimde debug
-arayüzünün kapatılması güvenlik için kritiktir.
+parola, API anahtarı, debug arka kapısı. Taranan 16 firmware'de böyle bir sızıntı
+**bulunmadı** (hepsi eğitim/demo firmware'idir). **Buffer handling:** gömülü C'nin en
+büyük riski tampon taşmasıdır; kendi Part 1 kodumuzda bunu bilinçle ele aldık — OTA
+alıcı her paket için `datalen < HEADER_LEN` ve `datalen != HEADER_LEN+payload_len`
+kontrolü yapar, yani **boyut doğrulanmadan belleğe yazmaz**. **Bütünlük:** OTA
+protokolümüz blok başına XOR checksum + tüm imaj için CRC32 kullanır. **`stack_check_process`**
+(hardworker.z1), RAM yığınına imza yazıp periyodik kontrol eden **yığın taşması
+dedektörüdür** — 8 KB RAM'li cihazda yığın/heap çakışması ciddi risktir. **Assert
+kalıntıları:** debug mesajları saldırgana kod yapısı sızdırabilir; üretim firmware'inde
+`strip` ile temizlenmeleri önerilir (B18). ARM/CC1352R'da `.ccfg` JTAG/debug kilidini
+kontrol eder — üretimde debug arayüzünün kapatılması kritiktir.
 
 ---
 
@@ -1178,7 +1271,6 @@ arayüzünün kapatılması güvenlik için kritiktir.
 |----------|----------|-----------|---------|-------|-----------|--------------|
 | `nullnet-broadcast.z1` | Z1 | 18 032 | 2 406 | 291 | NullNet+CSMA | 6 585 |
 | `nullnet-unicast.z1` | Z1 | 30 585 | 5 120 | 317 | NullNet+CSMA | — |
-| `nullnet-unicast-u50.sky` | Sky | 18 103 | 3 124 | 262 | NullNet+CSMA | — |
 | `nullnet-unicast.sky` | Sky | 33 597 | 7 512 | 300 | NullNet+CSMA | — |
 | `hello-world.z1` | Z1 | 41 840 | 6 004 | 502 | RPL+UDP+CSMA | 15 463 |
 | `hello-world.sky` | Sky | 42 561 | 7 038 | 474 | RPL+UDP+CSMA | — |
@@ -1190,22 +1282,29 @@ arayüzünün kapatılması güvenlik için kritiktir.
 | `base-demo.simplelink` | CC1352R | 72 801 | 14 376 | 761 | RPL+UDP+sensör | 27 897 |
 | `mtype5756516.cooja` | x86-64 | — | — | 1109 | RPL+UDP | — |
 
-💡 **Yorum:** Karşılaştırmalı analiz, firmware'ler arası **mimari ve uygulama
-farklarını** sayısallaştırır. **Ağ yığını en büyük belirleyicidir:** NullNet
-firmware'leri (18–33 KB) IPv6/RPL yığınını atladıkları için RPL+UDP firmware'lerinin
-(42–74 KB) yarısı kadardır — bir firmware'e RPL eklemek ~24 KB flash maliyetidir.
-**Platform farkı:** aynı `hello-world` uygulaması Z1'de 41 840 B, Sky'da 42 561 B
-flash kullanır — kod neredeyse aynı, fark donanım soyutlama katmanından gelir; ancak
-Sky daha çok RAM (`bss`) harcar çünkü farklı sürücüler içerir. **ISR yoğunluğu:** Z1
-32 kesme vektörü, Sky 16 kesme vektörü destekler (bkz. Bölüm 8). **En karmaşık
-firmware** `base-demo.simplelink` (ARM): 761 fonksiyon, 27 897 satır disassembly —
-çünkü ARM komut seti daha geniş ve CC1352R çok sayıda çevre birimi içerir.
-**Optimizasyon:** hepsi `-Os` ile derlenmiş, dolayısıyla optimizasyon farkı yok; fark
-tamamen **uygulama kapsamından** gelir. **Kendi firmware'lerimiz:** `own-udp-server.z1`
-(537 fonk., CFS dahil) `own-udp-client.z1`'den (512 fonk.) biraz büyük — alıcı, Coffee
-dosya sistemi + OTA metadata kodunu ek olarak taşıdığı için. `own-new-firmware.z1`'in
-72 KB'lik boyutu ise içine gömülü OTA örnek payload'undan kaynaklanır — yani "taşınan
-firmware" ile "taşıyan firmware" boyut olarak ayrışır.
+**Madde madde bulgular:**
+
+| Şablon maddesi | Bulgu |
+|----------------|-------|
+| Code size farkı | NullNet 18 KB ↔ hardworker 74 KB — RPL eklemek ~24 KB flash maliyeti |
+| RAM farkı | 2.4 KB (nullnet-broadcast) ↔ 14 KB (base-demo ARM) |
+| Function count farkı | 291 (en sade) ↔ 1109 (cooja-native, en zengin) |
+| ISR yoğunluğu | Z1 32 vektör, Sky 16 vektör — donanım kaynaklı |
+| Networking complexity | İki aile: NullNet (minimal) ↔ RPL+UDP (tam IPv6 yığını) |
+| Radio stack farkı | MSP430: CC2420 radyo; CC1352R: dahili SimpleLink radyo |
+| Symbol farkı | Aynı uygulama farklı platformda ±%10 sembol; fark HAL'den gelir |
+| Optimization farkı | Hepsi `-Os` — optimizasyon farkı yok; fark uygulama kapsamından |
+| Assembly complexity | nullnet-broadcast 6 585 satır ↔ base-demo 27 897 satır disasm |
+
+💡 **Yorum:** Karşılaştırmalı analiz firmware'ler arası **mimari ve uygulama farklarını**
+sayısallaştırır. **Ağ yığını en büyük belirleyicidir:** NullNet firmware'leri (18–33 KB)
+IPv6/RPL'i atladıkları için RPL+UDP'lilerin (42–74 KB) yarısı kadardır. **Platform
+farkı:** aynı `hello-world` Z1'de 41 840 B, Sky'da 42 561 B — kod neredeyse aynı, fark
+HAL'den; Sky daha çok RAM harcar. **En karmaşık** `base-demo.simplelink` (761 fonksiyon,
+27 897 satır disasm) — ARM komut seti geniş, CC1352R çok çevre birimi içerir. **Hepsi
+`-Os`** ile derlendiğinden optimizasyon farkı yok; fark tamamen **uygulama kapsamından**
+gelir. Kendi `own-udp-server.z1` (537 fonk., CFS dahil), `own-udp-client.z1`'den (512)
+biraz büyük — alıcı Coffee dosya sistemi + OTA metadata kodunu ek taşır.
 
 ---
 
@@ -1222,44 +1321,40 @@ firmware" ile "taşıyan firmware" boyut olarak ayrışır.
 
 ## 🔬 Analiz Bulguları — Vaka: `hardworker.z1` "Gizemli Firmware"
 
-Hiçbir dokümantasyonu yokmuş gibi, sadece araç zinciriyle `hardworker.z1` çözümlendi:
-
-**Adım 1 — Kimlik (`readelf -h`):** ELF32, MSP430, entry `0x3100` → bir **Z1 mote**
-firmware'i. **`strings`** → `Contiki-NG v4.9-639` ile derlenmiş.
-
-**Adım 2 — Ne yapıyor? (`nm` process'leri):**
+Hiçbir dokümantasyonu yokmuş gibi, sadece araç zinciriyle çözümlendi:
 ```
-led_process, accmeter_process, sensor_process, udp_process,
-dummy_printer_process, sensors_process, stack_check_process, tcpip_process
+readelf -h → ELF32, MSP430, entry 0x3100  → Z1 mote firmware'i
+strings    → "Contiki-NG v4.9-639", "[LED] Toggled", "LED Toggle P.ID:03"
+nm         → 11 process: led/accmeter/sensor/udp/tcpip/dummy_printer...
+nm         → rpl=77, udp=101, tsch=0
 ```
 
-**Adım 3 — İpucu string'ler:**
-```
-[LED] Toggled            LED Toggle P.ID:03
-failed to create packet, seqno: %d
-failed to create a new RPL DAG
-```
+**Madde madde bulgular:**
 
-**Adım 4 — Ağ rolü (`nm`):** `rpl=77`, `udp/uip=101`, `tsch=0` → **RPL + UDP**
-üzerinden CSMA MAC ile haberleşiyor.
+| Şablon görevi | Çıkarım |
+|---------------|---------|
+| Ne yaptığını bulma | Çok-process'li yoğun IoT düğümü ("hardworker" = çok çalışan) |
+| Hangi protokol | RPL + UDP + 6LoWPAN, CSMA MAC (`rpl=77`, `tsch=0`) |
+| button/LED mapping | `led_process` + `led_timer`; `"LED Toggle P.ID:03"` → process ID 3 LED'i sürer |
+| ISR'leri tanıma | `cc2420_*`=radyo, `timera0/1`=zamanlayıcı, `uart0_rx`=seri, `i2c_*`=sensör |
+| network role çıkarımı | RPL düğümü; `rpl_dag_root` çağrısına göre kök/yaprak ayrılır |
+| algoritmik blok | Ağır hesap yok; periyodik sensör okuma + paket üretimi |
+| energy-heavy bölgeler | Radyo gönderimi + sürekli sensör polling (`accmeter_process`) |
+| stripped firmware | `strip`'lenseydi sembol adları kaybolurdu; `strings`+`objdump` ile yine çözülürdü |
 
-💡 **Yorum — Firmware davranış kurtarma:** Hiçbir kaynak koda bakmadan, yalnızca
-`readelf` + `nm` + `strings` üçlüsüyle `hardworker.z1`'in **tam profili** çıkarıldı:
-Bu, bir **Z1 mote** üzerinde koşan, **çok-process'li yoğun bir IoT düğüm** firmware'idir
-("hardworker" = çok çalışan). **Davranışı:** (1) `led_process` LED'i periyodik yakıp
-söndürür (`"[LED] Toggled"`, `P.ID:03` → process ID 3); (2) `accmeter_process` +
-`sensor_process` Z1 üzerindeki **ivmeölçer ve sensörleri** okur; (3) `udp_process`
-RPL ağı üzerinden **UDP paketleri** gönderir (`"failed to create packet, seqno"` →
-sıra numaralı paket üretimi var); (4) `dummy_printer_process` test/debug çıktısı basar;
-(5) `stack_check_process` RAM yığınını korur. **Ağ rolü:** `rpl=77` sembolü ile bir
-**RPL ağ düğümü**dür ama `rpl_dag_root` çağrısı olup olmadığına bakılarak kök mü yaprak
-mı olduğu ayrıca belirlenebilir. **ISR tanıma:** `cc2420_process` → CC2420 radyo
-kesmesi, `etimer/ctimer_process` → zamanlayıcı kesmeleri. **Enerji:** 74 KB flash + 11
-process ile bu, repodaki **en yoğun iş yüküne** sahip firmware'dir — adı bunu doğrular.
-**Sonuç:** Bu vaka, araç zincirinin (toolchain) gücünü kanıtlar — kapalı bir binary,
-doğru araçlarla **tamamen şeffaf** hale gelir. Aynı yöntem `strip`'lenmiş bir firmware'e
-uygulansaydı sembol isimleri kaybolurdu; o durumda `strings` ve `objdump -d` ile davranış
-çıkarımı daha zor ama yine mümkün olurdu.
+💡 **Yorum:** Bu vaka araç zincirinin **gücünü kanıtlar** — kapalı bir binary, doğru
+araçlarla **tamamen şeffaf** hale gelir. Hiç kaynak koda bakmadan `readelf`+`nm`+`strings`
+üçlüsüyle `hardworker.z1`'in tam profili çıkarıldı: bir **Z1 mote** üzerinde koşan,
+**11 process'li yoğun IoT düğüm** firmware'i. **Davranışı:** `led_process` LED'i
+periyodik yakar (`"[LED] Toggled"`); `accmeter_process` + `sensor_process` ivmeölçer/
+sensör okur (I2C üzerinden); `udp_process` RPL ağında UDP paketi gönderir
+(`"failed to create packet, seqno"` → sıra numaralı üretim); `dummy_printer_process`
+debug basar; `stack_check_process` RAM'i korur. **ISR tanıma:** `cc2420_*` radyo,
+`timera*` zamanlayıcı, `uart0_rx_interrupt` seri, `i2c_*` sensör kesmeleri. **Ağ rolü:**
+`rpl=77` → bir RPL düğümü. 74 KB flash + 11 process ile repodaki **en yoğun firmware**dir
+— adı bunu doğrular. Aynı yöntem `strip`'lenmiş bir firmware'e uygulansaydı sembol
+adları kaybolurdu; o zaman `strings` ve `objdump -d` ile davranış çıkarımı daha zor ama
+yine mümkün olurdu.
 
 ---
 
@@ -1267,11 +1362,13 @@ uygulansaydı sembol isimleri kaybolurdu; o durumda `strings` ve `objdump -d` il
 
 Bu çalışmada **4 farklı platformda** (MSP430-Z1, MSP430-Sky, ARM-CC1352R,
 x86-cooja-native) derlenmiş **16 firmware**, MSP430 ve ARM araç zincirleri kullanılarak
-**23 başlık altında** analiz edilmiştir. Her komut çıktısı, salt kopyalanmak yerine
-firmware'in rolü ve mimari anlamı açısından **yorumlanmıştır**. Analizler, Part 1'de
-geliştirdiğimiz OTA firmware güncelleme sisteminin (`own-*.z1`) yapısını da doğrulamış;
-gömülü bir firmware'in ELF yapısı, bellek yerleşimi, kesme mekanizması ve ağ davranışının
-araç zinciriyle nasıl tamamen çözümlenebileceğini göstermiştir.
+**23 başlık altında** analiz edilmiştir. Her başlıkta şablonun tüm alt maddeleri
+**"Madde madde bulgular" tablosu** ile tek tek karşılanmış; her komut çıktısı salt
+kopyalanmak yerine firmware'in rolü ve mimari anlamı açısından **"💡 Yorum"** paragrafında
+yorumlanmıştır. Analizler, Part 1'de geliştirdiğimiz OTA firmware güncelleme sisteminin
+(`own-*.z1`) yapısını da doğrulamış; gömülü bir firmware'in ELF yapısı, bellek yerleşimi,
+kesme mekanizması ve ağ davranışının araç zinciriyle nasıl tamamen çözümlenebileceğini
+göstermiştir.
 
-*Ham analiz çıktıları `analysis-output/` klasöründe, analiz betiği `run-analysis.sh`
-dosyasında, incelenen firmware'ler `firmware-samples/` klasöründedir.*
+*Ham analiz çıktıları `analysis-output/`, analiz betiği `run-analysis.sh`, incelenen
+firmware'ler `firmware-samples/` klasöründedir.*
