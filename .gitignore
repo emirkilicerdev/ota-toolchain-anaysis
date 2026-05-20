@@ -1,0 +1,9 @@
+# Ham analiz ciktilari - README'de secilmis alintilar yer aliyor, ham dokum commit edilmez
+analysis-output/
+
+# Gecici dosyalar
+*.tmp
+*.bak
+fw.hex
+fw.bin
+fw-stripped.z1
