@@ -151,7 +151,7 @@ Araçlar:
 |----------|------|------|-----|---------------------|------------------|
 | `nullnet-broadcast.z1` | 17866 | 166 | 2240 | 18 032 | 2 406 |
 | `hello-world.z1` | 41512 | 328 | 5676 | 41 840 | 6 004 |
-| `own-udp-server.z1` | 50998 | 390 | 6042 | 51 388 | 6 432 |
+| `own-udp-server.z1` | 51456 | 390 | 6042 | 51 846 | 6 432 |
 | `own-new-firmware.z1` | 71715 | 336 | 5706 | 72 051 | 6 042 |
 | `hardworker.z1` | 73564 | 374 | 5698 | 73 938 | 6 072 |
 | `hello-world.sky` | 42237 | 324 | 6714 | 42 561 | 7 038 |
@@ -1061,17 +1061,17 @@ Araçlar:
 
 **Kullanılan komut:** `objcopy`, `strip`. `own-udp-server.z1` üzerinde canlı test:
 ```
-$ msp430-objcopy -O ihex   own-udp-server.z1 fw.hex   ->  144 592 byte
+$ msp430-objcopy -O ihex   own-udp-server.z1 fw.hex   ->  145 872 byte
 $ msp430-objcopy -O binary own-udp-server.z1 fw.bin   ->   52 992 byte
-$ msp430-strip             own-udp-server.z1 -o fw-stripped.z1 -> 52 144 byte
-  Orijinal ELF: 112 496 byte
+$ msp430-strip             own-udp-server.z1 -o fw-stripped.z1 -> 52 572 byte
+  Orijinal ELF: 112 920 byte
 ```
 
 **Madde madde bulgular:**
 
 | Şablon maddesi | Bulgu |
 |----------------|-------|
-| ELF → HEX | `objcopy -O ihex` → 144 592 B (metin: adres+veri+checksum, en büyük) |
+| ELF → HEX | `objcopy -O ihex` → 145 872 B (metin: adres+veri+checksum, en büyük) |
 | ELF → binary | `objcopy -O binary` → 52 992 B (sadece byte'lar, adres bilgisi yok) |
 | Section extraction | `objcopy -j .text` ile tek bölüm ayıklanabilir |
 | Symbol stripping | `strip` `.symtab`/`.strtab`'ı atar |
@@ -1275,8 +1275,8 @@ kontrol eder — üretimde debug arayüzünün kapatılması kritiktir.
 | `hello-world.z1` | Z1 | 41 840 | 6 004 | 502 | RPL+UDP+CSMA | 15 463 |
 | `hello-world.sky` | Sky | 42 561 | 7 038 | 474 | RPL+UDP+CSMA | — |
 | `udp-client.z1` | Z1 | 42 878 | 6 224 | 510 | RPL+UDP+CSMA | — |
-| `own-udp-client.z1` | Z1 | 49 935 | 6 312 | 512 | RPL+UDP+CSMA | — |
-| `own-udp-server.z1` | Z1 | 51 388 | 6 432 | 537 | RPL+UDP+CFS | 18 503 |
+| `own-udp-client.z1` | Z1 | 50 745 | 6 330 | 512 | RPL+UDP+CSMA | — |
+| `own-udp-server.z1` | Z1 | 51 846 | 6 432 | 537 | RPL+UDP+CFS | 18 595 |
 | `own-new-firmware.z1` | Z1 | 72 051 | 6 042 | 530 | RPL+UDP | — |
 | `hardworker.z1` | Z1 | 73 938 | 6 072 | 519 | RPL+UDP+sensör | — |
 | `base-demo.simplelink` | CC1352R | 72 801 | 14 376 | 761 | RPL+UDP+sensör | 27 897 |
