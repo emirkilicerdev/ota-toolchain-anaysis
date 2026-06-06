@@ -8,7 +8,7 @@
   $ tar -xjf gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
 ```
 ---
-##### ** Analiz etmeniz için farklı platformlarda oluşturulmuş örnek firmware arşivi bil.omu drive linki için [tıklayınız](https://drive.google.com/file/d/1oLrZWPmDyuznWe5qS7zOsfSyyyPcQbBG/view?usp=sharing) .
+##### ** Bu repoda analiz edilen 16 firmware örneği `firmware-samples/` klasöründedir.
 
 
 ---
